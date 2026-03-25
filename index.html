@@ -3,41 +3,174 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Directorio Maestro 2026 - Cloud Edition</title>
+    <title>Directorio Maestro 2026 - Cloud v2.8</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDK -->
+    <style>
+        .row-diputados { border-left: 4px solid #38bdf8; }
+        .row-senadores { border-left: 4px solid #fb7185; }
+        .row-ejecutivo { border-left: 4px solid #94a3b8; }
+        .selected-row { background-color: #f0f9ff !important; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 10px; }
+        #editPanel { transition: transform 0.3s ease-in-out; }
+        .panel-hidden { transform: translateX(100%); }
+        .panel-visible { transform: translateX(0); }
+        .tab-active { border-bottom: 2px solid #1f2937; color: #1f2937; }
+        .filter-btn-active { background-color: #1f2937; color: white; border-color: #1f2937; }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-900 font-sans antialiased overflow-x-hidden">
+
+    <header class="bg-white border-b border-stone-200 py-4 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
+            <h1 class="text-xl font-black text-stone-800 tracking-tight">🏛️ Directorio Maestro 2026 <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded ml-2 uppercase">Cloud</span></h1>
+            <nav class="flex gap-6 text-xs font-bold text-stone-400">
+                <button onclick="switchTab('main')" id="tab-main" class="tab-active py-2 uppercase">Directorio</button>
+                <button onclick="switchTab('history')" id="tab-history" class="py-2 uppercase">Versiones Globales</button>
+                <button onclick="switchTab('trash')" id="tab-trash" class="py-2 uppercase">Papelera</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        <!-- VISTA PRINCIPAL -->
+        <div id="view-main" class="view-section">
+            <div class="flex flex-col gap-4 mb-6">
+                <div class="flex flex-col md:flex-row gap-3">
+                    <div class="flex-grow relative flex gap-2">
+                        <div class="relative flex-grow">
+                            <input type="text" id="masterSearch" placeholder="Buscar por apellido o firma..." 
+                                   class="w-full pl-10 pr-4 py-2 bg-white border border-stone-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-400 shadow-sm">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">🔍</span>
+                        </div>
+                        <button onclick="openCreatePanel()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-black text-xs uppercase flex items-center gap-2 shadow-md transition-all">
+                            <span>+</span> Nuevo
+                        </button>
+                    </div>
+                    <div id="groupFilters" class="flex gap-1 bg-stone-100 p-1 rounded-lg">
+                        <button onclick="setFilter('all')" data-filter="all" class="filter-btn-active px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent transition-all">Todos</button>
+                        <button onclick="setFilter('ejecutivo')" data-filter="ejecutivo" class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent hover:bg-white transition-all">Ejecutivo</button>
+                        <button onclick="setFilter('senadores')" data-filter="senadores" class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent hover:bg-white transition-all">Senado</button>
+                        <button onclick="setFilter('diputados')" data-filter="diputados" class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent hover:bg-white transition-all">Diputados</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+                <div class="overflow-x-auto max-h-[70vh]">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-stone-50 border-b border-stone-200 sticky top-0 z-10">
+                            <tr>
+                                <th class="px-4 py-3 w-10"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" class="w-4 h-4"></th>
+                                <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400">Apellidos y Nombres</th>
+                                <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400">Cargo</th>
+                                <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400">Firma</th>
+                                <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="masterTableBody" class="text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="counterLabel" class="mt-4 text-[10px] font-black text-stone-400 uppercase tracking-widest">Cargando datos...</div>
+        </div>
+
+        <!-- VISTA HISTORIAL -->
+        <div id="view-history" class="view-section hidden">
+            <h2 class="text-sm font-black uppercase mb-4 text-stone-400">Historial Global (Actividad Reciente)</h2>
+            <div id="versionTimeline" class="space-y-3"></div>
+        </div>
+        
+        <!-- VISTA PAPELERA -->
+        <div id="view-trash" class="view-section hidden">
+            <h2 class="text-sm font-black uppercase mb-4 text-red-500">Papelera</h2>
+            <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+                <table class="w-full text-left">
+                    <tbody id="trashTableBody" class="text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- PANEL DE EDICIÓN -->
+    <div id="editPanelOverlay" class="fixed inset-0 bg-black/20 hidden z-50" onclick="closeEditPanel()"></div>
+    <div id="editPanel" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[60] panel-hidden flex flex-col">
+        <div class="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50">
+            <div>
+                <h3 id="panelTitle" class="font-black text-stone-800 uppercase tracking-tight">Ficha de Autoridad</h3>
+                <p id="editIdLabel" class="text-[9px] text-stone-400 font-bold uppercase"></p>
+            </div>
+            <button onclick="closeEditPanel()" class="text-2xl text-stone-300 hover:text-stone-600">&times;</button>
+        </div>
+        <div class="p-6 flex-grow overflow-y-auto space-y-6">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-[10px] font-black text-stone-400 uppercase block mb-1 tracking-widest">Apellidos</label>
+                    <input type="text" id="editLastName" oninput="handleNameInput()" class="w-full p-2 bg-stone-50 border border-stone-200 rounded text-sm font-bold outline-none focus:ring-1 focus:ring-blue-400">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-stone-400 uppercase block mb-1 tracking-widest">Nombres</label>
+                    <input type="text" id="editFirstName" oninput="handleNameInput()" class="w-full p-2 bg-stone-50 border border-stone-200 rounded text-sm font-bold outline-none focus:ring-1 focus:ring-blue-400">
+                </div>
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-stone-400 uppercase block mb-1 tracking-widest">Cargo Institucional</label>
+                <select id="editCargo" class="w-full p-2 bg-stone-50 border border-stone-200 rounded text-sm font-bold outline-none focus:ring-1 focus:ring-blue-400" onchange="syncGroupFromCargo('editCargo', 'editGroupLabel')">
+                    <option value="Presidente/a">Presidente/a</option>
+                    <option value="Vicepresidente/a">Vicepresidente/a</option>
+                    <option value="Jefe/a de Gabinete">Jefe/a de Gabinete</option>
+                    <option value="Ministro/a">Ministro/a</option>
+                    <option value="Diputado/a">Diputado/a</option>
+                    <option value="Senador/a">Senador/a</option>
+                </select>
+                <p id="editGroupLabel" class="text-[9px] text-blue-500 font-bold uppercase mt-1"></p>
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-stone-400 uppercase block mb-1 tracking-widest">Firma Oficial</label>
+                <input type="text" id="editFirma" oninput="handleFirmaManual()" placeholder="Ej: Juan Pérez." class="w-full p-2 bg-blue-50/50 border border-blue-100 rounded text-sm italic font-serif text-blue-800 outline-none">
+                <p class="text-[9px] text-stone-400 mt-1 italic">Se genera automáticamente salvo que escribas aquí.</p>
+            </div>
+
+            <div id="historySection" class="pt-4 border-t border-stone-100">
+                <label class="text-[10px] font-black text-stone-400 uppercase block mb-3 tracking-widest">Historial del Registro</label>
+                <div id="individualHistory" class="space-y-2 max-h-40 overflow-y-auto pr-2 text-[11px]"></div>
+            </div>
+        </div>
+        <div class="p-6 border-t border-stone-100 flex gap-3 bg-stone-50">
+            <button onclick="triggerSaveRecord()" class="flex-grow bg-blue-600 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest hover:bg-blue-700 transition-all">Guardar Registro</button>
+            <button onclick="closeEditPanel()" class="px-6 bg-white border border-stone-200 text-stone-400 font-bold py-3 rounded-lg text-xs uppercase tracking-widest">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- ACCIONES FLOTANTES -->
+    <div id="actionFab" class="fixed bottom-6 right-6 flex flex-col items-end gap-3 opacity-0 translate-y-10 pointer-events-none transition-all">
+        <button onclick="copySignatures()" class="pointer-events-auto bg-stone-900 text-white px-8 py-4 rounded-full shadow-2xl flex items-center gap-3 hover:scale-105 transition-transform">
+            <span class="text-xs font-black uppercase tracking-widest">Copiar Firmas (<span id="fabCount">0</span>)</span>
+        </button>
+    </div>
+
+    <!-- FIREBASE SDK & LÓGICA DE NEGOCIO -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // CONFIGURACIÓN REAL DE TU PROYECTO FIREBASE
+        // CONFIGURACIÓN FIREBASE (Del archivo index.html proporcionado)
         const firebaseConfig = {
           apiKey: "AIzaSyBE--BeAKzWwTs-EjWJgQ9eN0lGX2i86dY",
           authDomain: "firmas-75d1a.firebaseapp.com",
           projectId: "firmas-75d1a",
           storageBucket: "firmas-75d1a.firebasestorage.app",
           messagingSenderId: "200832449122",
-          appId: "1:200832449122:web:86687139e17f3d0174af3b",
-          measurementId: "G-WNGPEXWDVM"
+          appId: "1:200832449122:web:8668713063f60e90c52227"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        
-        // ID para organizar tus datos en la base
-        const appId = 'directorio-maestro-2026';
 
-        // Estado de la App
-        let records = [];
-        let globalVersions = [];
-        let user = null;
-        let selectedOrder = [];
-        let currentFilter = 'all';
-        let activeEditId = null;
-        let isFirmaDirty = false;
-
+        // CONFIGURACIÓN APP
         const CONFIG = {
             grupos: {
                 'Presidente/a': 'ejecutivo',
@@ -50,68 +183,152 @@
             conectoresNombres: ['de la', 'de los', 'de las', 'del', 'de', 'la', 'los', 'las']
         };
 
-        // --- AUTENTICACIÓN ---
-        const initAuth = async () => {
+        let records = [];
+        let globalVersions = [];
+        let selectedOrder = []; 
+        let currentFilter = 'all';
+        let activeEditId = null;
+        let isFirmaDirty = false;
+
+        // --- INICIALIZACIÓN ---
+        
+        async function init() {
             try {
-                // En GitHub Pages usamos el método anónimo para acceso rápido
                 await signInAnonymously(auth);
+                // Listener de Firebase para Registros
+                onSnapshot(collection(db, "autoridades"), (snapshot) => {
+                    records = snapshot.docs.map(doc => ({ firebaseId: doc.id, ...doc.data() }));
+                    renderAll();
+                });
+                // Listener para Historial Global
+                onSnapshot(collection(db, "historial_global"), (snapshot) => {
+                    globalVersions = snapshot.docs.map(doc => doc.data()).sort((a,b) => b.timestamp - a.timestamp);
+                    renderGlobalHistory();
+                });
             } catch (error) {
-                console.error("Error de autenticación:", error);
+                console.error("Error de conexión:", error);
             }
-        };
+        }
 
-        onAuthStateChanged(auth, (u) => {
-            user = u;
-            if (user) {
-                console.log("Sesión activa en la nube:", user.uid);
-                initDataListeners();
-            }
-        });
+        // --- LÓGICA DE FIRMA INTELIGENTE ---
 
-        // --- ESCUCHA DE DATOS EN TIEMPO REAL ---
-        const initDataListeners = () => {
-            if (!user) return;
-
-            // Escuchar Autoridades (Colección: autoridades)
-            const qRecords = collection(db, 'autoridades');
-            onSnapshot(qRecords, (snapshot) => {
-                records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderAll();
-            }, (error) => console.error("Error cargando registros:", error));
-
-            // Escuchar Historial (Colección: historial)
-            const qHistory = collection(db, 'historial');
-            onSnapshot(qHistory, (snapshot) => {
-                globalVersions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderGlobalHistory();
-            });
-        };
-
-        // --- LÓGICA DE FIRMAS ---
-        window.generateAutoFirma = (nombres, apellidos) => {
+        window.generateAutoFirma = function(nombres, apellidos) {
             if (!nombres.trim() && !apellidos.trim()) return "";
             const parts = nombres.trim().split(/\s+/);
-            let resultNombres = [parts[0]];
-            for (let i = 1; i < parts.length; i++) {
-                const current = parts[i];
-                const prev = parts[i-1];
-                if (CONFIG.conectoresNombres.includes(current.toLowerCase())) {
-                    resultNombres.push(current);
-                } else {
-                    const prevWasConnector = CONFIG.conectoresNombres.includes(prev?.toLowerCase());
-                    resultNombres.push(prevWasConnector ? current : current[0].toUpperCase() + ".");
+            let resultNombres = [];
+            if (parts.length > 0) {
+                resultNombres.push(parts[0]);
+                for (let i = 1; i < parts.length; i++) {
+                    const current = parts[i];
+                    const prev = parts[i-1];
+                    const isConnector = CONFIG.conectoresNombres.includes(current.toLowerCase());
+                    if (isConnector) {
+                        resultNombres.push(current);
+                    } else {
+                        const prevWasConnector = CONFIG.conectoresNombres.includes(prev?.toLowerCase());
+                        if (prevWasConnector) resultNombres.push(current);
+                        else resultNombres.push(current[0].toUpperCase() + ".");
+                    }
                 }
             }
-            return `${resultNombres.join(' ')} ${apellidos.trim()}.`.trim();
-        };
+            const nombreFinal = resultNombres.join(' ');
+            return `${nombreFinal} ${apellidos.trim()}.`.trim();
+        }
 
-        window.saveRecord = async () => {
-            if (!user) return;
+        window.handleNameInput = function() {
+            if (isFirmaDirty) return;
+            const n = document.getElementById('editFirstName').value;
+            const a = document.getElementById('editLastName').value;
+            document.getElementById('editFirma').value = generateAutoFirma(n, a);
+        }
+
+        window.handleFirmaManual = function() {
+            isFirmaDirty = true;
+        }
+
+        // --- RENDERIZADO ---
+
+        window.setFilter = function(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('#groupFilters button').forEach(btn => {
+                if(btn.dataset.filter === filter) btn.classList.add('filter-btn-active');
+                else btn.classList.remove('filter-btn-active');
+            });
+            renderTable();
+        }
+
+        function renderAll() {
+            renderTable();
+            renderTrash();
+            updateFab();
+        }
+
+        function hasLastNameCollision(record) {
+            return records.some(r => 
+                r.active && 
+                r.firebaseId !== record.firebaseId && 
+                r.apellido.toLowerCase() === record.apellido.toLowerCase() && 
+                r.grupo === record.grupo
+            );
+        }
+
+        function getDisplayName(r) {
+            let name = `${r.apellido}, ${r.nombres}`;
+            if (hasLastNameCollision(r)) {
+                const initials = r.nombres.split(/\s+/).map(n => {
+                    if (CONFIG.conectoresNombres.includes(n.toLowerCase())) return "";
+                    return n[0].toUpperCase() + ".";
+                }).join('');
+                name += ` (${initials})`;
+            }
+            return name;
+        }
+
+        window.renderTable = function() {
+            const body = document.getElementById('masterTableBody');
+            const searchInput = document.getElementById('masterSearch');
+            const search = searchInput ? searchInput.value.toLowerCase() : "";
+            
+            const sorted = [...records].sort((a, b) => {
+                const fa = `${a.apellido} ${a.nombres}`.toLowerCase();
+                const fb = `${b.apellido} ${b.nombres}`.toLowerCase();
+                return fa.localeCompare(fb);
+            });
+
+            const filtered = sorted.filter(r => 
+                r.active && 
+                (currentFilter === 'all' || r.grupo === currentFilter) &&
+                (r.apellido.toLowerCase().includes(search) || r.firma.toLowerCase().includes(search))
+            );
+
+            body.innerHTML = filtered.map(r => {
+                const isSelected = selectedOrder.includes(r.firebaseId);
+                return `
+                    <tr class="row-${r.grupo} hover:bg-stone-50 cursor-pointer transition-all ${isSelected ? 'selected-row' : ''}" onclick="openEditPanel('${r.firebaseId}', event)">
+                        <td class="px-4 py-3" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="w-4 h-4 rounded border-stone-300" ${isSelected ? 'checked' : ''} onchange="toggleSelect('${r.firebaseId}')">
+                        </td>
+                        <td class="px-4 py-3 font-bold text-stone-700">${getDisplayName(r)}</td>
+                        <td class="px-4 py-3 text-stone-400 font-medium">${r.cargo}</td>
+                        <td class="px-4 py-3 italic font-serif text-blue-700 select-all">${r.firma}</td>
+                        <td class="px-4 py-3 text-right" onclick="event.stopPropagation()">
+                            <button onclick="deleteRecord('${r.firebaseId}')" class="text-stone-200 hover:text-red-500 transition-colors p-2">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            }).join(filtered.length ? '' : '<tr><td colspan="5" class="p-10 text-center text-stone-300 italic">No hay registros</td></tr>');
+
+            document.getElementById('counterLabel').innerText = `${filtered.length} Visibles | ${records.filter(x => x.active).length} Totales`;
+        }
+
+        // --- ACCIONES FIREBASE ---
+
+        window.triggerSaveRecord = async function() {
             const lastName = document.getElementById('editLastName').value.trim();
             const firstName = document.getElementById('editFirstName').value.trim();
             const firma = document.getElementById('editFirma').value.trim();
             const cargo = document.getElementById('editCargo').value;
-            const now = new Date().toLocaleString('es-AR').slice(0, 16);
+            const now = new Date().toLocaleString('es-AR', { hour12: false }).slice(0, 16);
 
             if (!lastName || !firstName) return;
 
@@ -122,338 +339,185 @@
                 cargo: cargo,
                 grupo: CONFIG.grupos[cargo],
                 active: true,
-                lastUpdated: now,
-                updatedBy: user.uid
+                lastUpdate: now
             };
 
-            try {
-                if (activeEditId === null) {
-                    await addDoc(collection(db, 'autoridades'), {
-                        ...data,
-                        history: [{ date: now, action: "Alta de registro.", user: user.uid }]
-                    });
-                    await registerGlobalEvent(`Alta: ${lastName}`);
-                } else {
-                    const docRef = doc(db, 'autoridades', activeEditId);
-                    const currentRecord = records.find(r => r.id === activeEditId);
-                    const newHistory = [...(currentRecord.history || []), { date: now, action: "Edición.", user: user.uid }];
-                    await updateDoc(docRef, { ...data, history: newHistory });
-                    await registerGlobalEvent(`Edición: ${lastName}`);
-                }
-                window.closeEditPanel();
-            } catch (e) {
-                console.error("Error guardando:", e);
+            if (activeEditId === null) {
+                // Nuevo Registro
+                const docRef = await addDoc(collection(db, "autoridades"), {
+                    ...data,
+                    history: [{ date: now, action: "Alta de registro." }]
+                });
+                registerGlobalVersion(`Alta: ${lastName}`);
+            } else {
+                // Actualizar Existente
+                const r = records.find(x => x.firebaseId === activeEditId);
+                const updatedHistory = [...(r.history || []), { date: now, action: "Modificación de datos." }];
+                await updateDoc(doc(db, "autoridades", activeEditId), {
+                    ...data,
+                    history: updatedHistory
+                });
+                registerGlobalVersion(`Edición: ${lastName}`);
             }
-        };
+            closeEditPanel();
+        }
 
-        window.deleteRecord = async (id) => {
-            if (!user) return;
-            const r = records.find(x => x.id === id);
-            const docRef = doc(db, 'autoridades', id);
+        window.deleteRecord = async function(id) {
+            const r = records.find(x => x.firebaseId === id);
             const now = new Date().toLocaleString('es-AR').slice(0, 16);
-            const newHistory = [...(r.history || []), { date: now, action: "Enviado a papelera.", user: user.uid }];
+            const updatedHistory = [...(r.history || []), { date: now, action: "Enviado a papelera." }];
+            
+            await updateDoc(doc(db, "autoridades", id), { 
+                active: false,
+                history: updatedHistory
+            });
+            
+            selectedOrder = selectedOrder.filter(sid => sid !== id);
+            registerGlobalVersion(`Baja: ${r.apellido}`);
+        }
 
-            await updateDoc(docRef, { active: false, history: newHistory });
-            await registerGlobalEvent(`Baja: ${r.apellido}`);
-        };
+        window.restoreRecord = async function(id) {
+            const r = records.find(x => x.firebaseId === id);
+            await updateDoc(doc(db, "autoridades", id), { active: true });
+            registerGlobalVersion(`Restauración: ${r.apellido}`);
+        }
 
-        window.restoreRecord = async (id) => {
-            if (!user) return;
-            const docRef = doc(db, 'autoridades', id);
-            await updateDoc(docRef, { active: true });
-            await registerGlobalEvent(`Restauración ID: ${id}`);
-        };
-
-        const registerGlobalEvent = async (msg) => {
-            const now = new Date().toLocaleString('es-AR').slice(0, 16);
-            await addDoc(collection(db, 'historial'), {
-                date: now,
+        async function registerGlobalVersion(msg) {
+            const date = new Date().toLocaleString('es-AR', { hour12: false }).slice(0, 16);
+            await addDoc(collection(db, "historial_global"), {
+                date,
                 desc: msg,
-                user: user.uid,
                 timestamp: Date.now()
             });
-        };
+        }
 
-        // --- UI HANDLERS ---
-        window.handleNameInput = () => {
-            if (isFirmaDirty) return;
-            const n = document.getElementById('editFirstName').value;
-            const a = document.getElementById('editLastName').value;
-            document.getElementById('editFirma').value = generateAutoFirma(n, a);
-        };
+        // --- INTERFAZ UI ---
 
-        window.handleFirmaManual = () => { isFirmaDirty = true; };
-
-        window.openCreatePanel = () => {
+        window.openCreatePanel = function() {
             activeEditId = null;
             isFirmaDirty = false;
             document.getElementById('panelTitle').innerText = "Nuevo Registro";
+            document.getElementById('editIdLabel').innerText = "Alta de Autoridad";
             document.getElementById('editLastName').value = "";
             document.getElementById('editFirstName').value = "";
             document.getElementById('editFirma').value = "";
+            document.getElementById('editCargo').value = "Ministro/a";
             document.getElementById('historySection').classList.add('hidden');
+            syncGroupFromCargo('editCargo', 'editGroupLabel');
             document.getElementById('editPanelOverlay').classList.remove('hidden');
             document.getElementById('editPanel').classList.replace('panel-hidden', 'panel-visible');
-        };
+        }
 
-        window.openEditPanel = (id, e) => {
+        window.openEditPanel = function(id, e) {
             if (e && (e.target.type === 'checkbox' || e.target.tagName === 'BUTTON')) return;
             activeEditId = id;
-            const r = records.find(x => x.id === id);
             isFirmaDirty = true;
-
+            const r = records.find(x => x.firebaseId === id);
+            
             document.getElementById('panelTitle').innerText = "Editar Autoridad";
+            document.getElementById('editIdLabel').innerText = `FIREBASE ID: ${id}`;
             document.getElementById('editLastName').value = r.apellido;
             document.getElementById('editFirstName').value = r.nombres;
             document.getElementById('editFirma').value = r.firma;
             document.getElementById('editCargo').value = r.cargo;
             document.getElementById('historySection').classList.remove('hidden');
+            syncGroupFromCargo('editCargo', 'editGroupLabel');
 
             const histBody = document.getElementById('individualHistory');
             histBody.innerHTML = (r.history || []).slice().reverse().map(h => `
-                <div class="flex gap-2 mb-2 pb-2 border-b border-stone-50">
-                    <span class="text-[9px] text-stone-300 font-bold">${h.date}</span>
-                    <span class="text-stone-600 font-medium">${h.action}</span>
+                <div class="flex gap-2 mb-2 pb-2 border-b border-stone-50 last:border-0">
+                    <span class="text-stone-300 font-bold whitespace-nowrap">${h.date}</span>
+                    <span class="text-stone-600">${h.action}</span>
                 </div>
             `).join('');
 
             document.getElementById('editPanelOverlay').classList.remove('hidden');
             document.getElementById('editPanel').classList.replace('panel-hidden', 'panel-visible');
-        };
+        }
 
-        window.closeEditPanel = () => {
+        window.closeEditPanel = function() {
             document.getElementById('editPanelOverlay').classList.add('hidden');
             document.getElementById('editPanel').classList.replace('panel-visible', 'panel-hidden');
-        };
+            activeEditId = null;
+        }
 
-        window.toggleSelect = (id) => {
+        window.toggleSelect = function(id) {
             const index = selectedOrder.indexOf(id);
             if (index > -1) selectedOrder.splice(index, 1);
             else selectedOrder.push(id);
             renderTable();
             updateFab();
-        };
+        }
 
-        window.copySignatures = () => {
-            const text = selectedOrder.map(id => records.find(x => x.id === id)?.firma).filter(Boolean).join(' — ');
+        window.toggleSelectAll = function(master) {
+            const search = document.getElementById('masterSearch').value.toLowerCase();
+            const visible = records.filter(r => 
+                r.active && (currentFilter === 'all' || r.grupo === currentFilter) &&
+                (r.apellido.toLowerCase().includes(search) || r.firma.toLowerCase().includes(search))
+            );
+            if (master.checked) visible.forEach(r => { if (!selectedOrder.includes(r.firebaseId)) selectedOrder.push(r.firebaseId); });
+            else selectedOrder = selectedOrder.filter(id => !visible.map(v => v.firebaseId).includes(id));
+            renderTable();
+            updateFab();
+        }
+
+        window.updateFab = function() {
+            const fab = document.getElementById('actionFab');
+            document.getElementById('fabCount').innerText = selectedOrder.length;
+            if (selectedOrder.length > 0) fab.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none');
+            else fab.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none');
+        }
+
+        window.copySignatures = function() {
+            const orderedSignatures = selectedOrder.map(id => records.find(x => x.firebaseId === id)?.firma).filter(Boolean);
+            if (orderedSignatures.length === 0) return;
+            const text = orderedSignatures.join(' — ');
             const dummy = document.createElement("textarea");
             document.body.appendChild(dummy);
             dummy.value = text;
             dummy.select();
             document.execCommand("copy");
             document.body.removeChild(dummy);
-        };
+        }
 
-        // --- RENDERIZADO ---
-        const renderAll = () => {
-            renderTable();
-            renderTrash();
-            updateFab();
-        };
+        window.switchTab = function(tab) {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('tab-active'));
+            document.getElementById(`view-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).classList.add('tab-active');
+        }
 
-        const renderTable = () => {
-            const body = document.getElementById('masterTableBody');
-            const search = document.getElementById('masterSearch').value.toLowerCase();
-
-            const filtered = records.filter(r =>
-                r.active &&
-                (currentFilter === 'all' || r.grupo === currentFilter) &&
-                (r.apellido.toLowerCase().includes(search) || r.firma.toLowerCase().includes(search))
-            ).sort((a,b) => a.apellido.localeCompare(b.apellido));
-
-            if (filtered.length === 0) {
-                body.innerHTML = '<tr><td colspan="5" class="text-center py-12 text-stone-300">No hay registros para mostrar.</td></tr>';
-            } else {
-                body.innerHTML = filtered.map(r => `
-                    <tr class="row-${r.grupo} hover:bg-stone-50 cursor-pointer border-b border-stone-100 transition-colors ${selectedOrder.includes(r.id) ? 'bg-blue-50/30' : ''}" onclick="openEditPanel('${r.id}', event)">
-                        <td class="px-4 py-3" onclick="event.stopPropagation()">
-                            <input type="checkbox" class="w-4 h-4 rounded" ${selectedOrder.includes(r.id) ? 'checked' : ''} onchange="toggleSelect('${r.id}')">
-                        </td>
-                        <td class="px-4 py-3 font-bold text-stone-700">${r.apellido}, ${r.nombres}</td>
-                        <td class="px-4 py-3 text-stone-400 text-xs">${r.cargo}</td>
-                        <td class="px-4 py-3 italic font-serif text-blue-700 select-all">${r.firma}</td>
-                        <td class="px-4 py-3 text-right" onclick="event.stopPropagation()">
-                            <button onclick="deleteRecord('${r.id}')" class="hover:text-red-500 text-stone-300 transition-colors">🗑️</button>
-                        </td>
-                    </tr>
-                `).join('');
-            }
-            document.getElementById('counterLabel').innerText = `${filtered.length} Registros Activos`;
-        };
-
-        const renderTrash = () => {
+        window.renderTrash = function() {
             const deleted = records.filter(r => !r.active);
-            document.getElementById('trashTableBody').innerHTML = deleted.length === 0 
-                ? '<tr><td class="p-8 text-center text-stone-300">Papelera vacía</td></tr>'
-                : deleted.map(r => `
+            document.getElementById('trashTableBody').innerHTML = deleted.map(r => `
                 <tr class="border-b border-stone-100">
                     <td class="px-4 py-3 font-bold text-stone-600">${r.apellido}, ${r.nombres}</td>
                     <td class="px-4 py-3 text-right">
-                        <button onclick="restoreRecord('${r.id}')" class="text-[10px] font-black border border-stone-200 px-4 py-1 rounded uppercase tracking-widest hover:bg-stone-100">Restaurar</button>
+                        <button onclick="restoreRecord('${r.firebaseId}')" class="text-[10px] font-black border border-stone-200 px-4 py-1 rounded-lg uppercase tracking-widest">Restaurar</button>
                     </td>
                 </tr>
-            `).join('');
-        };
+            `).join(deleted.length ? '' : '<tr><td class="p-10 text-center text-stone-300 italic">Papelera vacía</td></tr>');
+        }
 
-        const renderGlobalHistory = () => {
-            const sortedHistory = globalVersions.sort((a,b) => b.timestamp - a.timestamp);
-            document.getElementById('versionTimeline').innerHTML = sortedHistory.length === 0
-                ? '<p class="text-stone-300 text-center py-8">Sin actividad registrada.</p>'
-                : sortedHistory.slice(0, 20).map(v => `
-                <div class="bg-white p-3 rounded-lg border border-stone-100 shadow-sm flex gap-3 text-xs mb-2">
-                    <div class="font-black text-blue-500 uppercase min-w-[100px]">${v.date}</div>
-                    <div class="text-stone-600 font-medium">${v.desc} <span class="text-[9px] text-stone-300 ml-2">ID: ${v.user.slice(-4)}</span></div>
+        function renderGlobalHistory() {
+            document.getElementById('versionTimeline').innerHTML = globalVersions.map(v => `
+                <div class="bg-white p-4 rounded-xl border border-stone-200 shadow-sm flex gap-4">
+                    <div class="text-[10px] font-black text-blue-500 uppercase pt-1 border-r border-stone-100 pr-3">${v.date}</div>
+                    <div class="text-sm text-stone-700 leading-relaxed">${v.desc}</div>
                 </div>
             `).join('');
-        };
+        }
 
-        const updateFab = () => {
-            const fab = document.getElementById('actionFab');
-            document.getElementById('fabCount').innerText = selectedOrder.length;
-            if (selectedOrder.length > 0) fab.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none');
-            else fab.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none');
-        };
+        window.syncGroupFromCargo = function(selectId, labelId) {
+            const cargo = document.getElementById(selectId).value;
+            document.getElementById(labelId).innerText = `Grupo: ${CONFIG.grupos[cargo].toUpperCase()}`;
+        }
 
-        window.setFilter = (f) => {
-            currentFilter = f;
-            document.querySelectorAll('#groupFilters button').forEach(b => {
-                b.classList.toggle('bg-stone-900', b.dataset.filter === f);
-                b.classList.toggle('text-white', b.dataset.filter === f);
-            });
-            renderTable();
-        };
-
-        window.switchTab = (tab) => {
-            document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
-            document.getElementById(`view-${tab}`).classList.remove('hidden');
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('border-b-2', 'border-stone-800', 'text-stone-800'));
-            document.getElementById(`tab-${tab}`).classList.add('border-b-2', 'border-stone-800', 'text-stone-800');
-        };
-
-        // Iniciar Auth al cargar
-        initAuth();
         document.getElementById('masterSearch').addEventListener('input', renderTable);
+        
+        // Iniciar App
+        init();
+
     </script>
-    <style>
-        .row-diputados { border-left: 4px solid #38bdf8; }
-        .row-senadores { border-left: 4px solid #fb7185; }
-        .row-ejecutivo { border-left: 4px solid #94a3b8; }
-        .panel-hidden { transform: translateX(100%); }
-        .panel-visible { transform: translateX(0); transition: transform 0.3s ease; }
-    </style>
-</head>
-<body class="bg-stone-50 text-stone-900 font-sans antialiased">
-
-    <header class="bg-white border-b border-stone-200 py-4 sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
-            <h1 class="text-xl font-black text-stone-800 tracking-tight">🏛️ Directorio Maestro 2026</h1>
-            <nav class="flex gap-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">
-                <button onclick="switchTab('main')" id="tab-main" class="py-2 border-b-2 border-stone-800 text-stone-800">Directorio</button>
-                <button onclick="switchTab('history')" id="tab-history" class="py-2">Actividad</button>
-                <button onclick="switchTab('trash')" id="tab-trash" class="py-2">Papelera</button>
-            </nav>
-        </div>
-    </header>
-
-    <main class="max-w-7xl mx-auto px-4 py-6">
-        <div id="view-main" class="view-section">
-            <div class="flex flex-col md:flex-row gap-3 mb-6">
-                <div class="flex-grow relative">
-                    <input type="text" id="masterSearch" placeholder="Buscar autoridad..."
-                           class="w-full pl-10 pr-4 py-2 bg-white border border-stone-200 rounded-lg text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-400">
-                    <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-30">🔍</span>
-                </div>
-                <div id="groupFilters" class="flex gap-1 bg-stone-200/50 p-1 rounded-lg">
-                    <button onclick="setFilter('all')" data-filter="all" class="bg-stone-900 text-white px-4 py-1.5 rounded-md text-[9px] font-black uppercase">Todos</button>
-                    <button onclick="setFilter('ejecutivo')" data-filter="ejecutivo" class="px-4 py-1.5 rounded-md text-[9px] font-black uppercase">Ejecutivo</button>
-                    <button onclick="setFilter('senadores')" data-filter="senadores" class="px-4 py-1.5 rounded-md text-[9px] font-black uppercase">Senado</button>
-                    <button onclick="setFilter('diputados')" data-filter="diputados" class="px-4 py-1.5 rounded-md text-[9px] font-black uppercase">Diputados</button>
-                </div>
-                <button onclick="openCreatePanel()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-black text-[10px] uppercase shadow-md">+ Nuevo</button>
-            </div>
-
-            <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
-                <table class="w-full text-left">
-                    <thead class="bg-stone-50 border-b border-stone-200">
-                        <tr>
-                            <th class="px-4 py-3 w-10"></th>
-                            <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400">Autoridad</th>
-                            <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400">Cargo</th>
-                            <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400">Firma</th>
-                            <th class="px-4 py-3 w-10"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="masterTableBody" class="text-sm">
-                        <tr><td colspan="5" class="text-center py-20 text-stone-300">Iniciando conexión segura...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <p id="counterLabel" class="mt-4 text-[9px] font-black text-stone-400 uppercase tracking-widest text-center"></p>
-        </div>
-
-        <div id="view-history" class="view-section hidden">
-            <h2 class="text-xs font-black uppercase mb-4 text-stone-400 tracking-widest">Actividad Reciente</h2>
-            <div id="versionTimeline"></div>
-        </div>
-
-        <div id="view-trash" class="view-section hidden">
-            <h2 class="text-xs font-black uppercase mb-4 text-red-400 tracking-widest">Registros Eliminados</h2>
-            <div class="bg-white rounded-xl border border-stone-200 overflow-hidden">
-                <table class="w-full text-left">
-                    <tbody id="trashTableBody" class="text-sm"></tbody>
-                </table>
-            </div>
-        </div>
-    </main>
-
-    <!-- PANEL LATERAL -->
-    <div id="editPanelOverlay" class="fixed inset-0 bg-stone-900/40 hidden z-50" onclick="closeEditPanel()"></div>
-    <div id="editPanel" class="fixed top-0 right-0 h-full w-full max-w-sm bg-white shadow-2xl z-[60] panel-hidden flex flex-col">
-        <div class="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50">
-            <h3 id="panelTitle" class="font-black text-stone-800 uppercase tracking-tight text-sm">Editar Registro</h3>
-            <button onclick="closeEditPanel()" class="text-stone-300 hover:text-stone-900 text-2xl">&times;</button>
-        </div>
-        <div class="p-6 flex-grow overflow-y-auto space-y-4">
-            <div>
-                <label class="text-[9px] font-black text-stone-400 uppercase block mb-1">Apellidos</label>
-                <input type="text" id="editLastName" oninput="handleNameInput()" class="w-full p-2 border border-stone-200 rounded text-sm font-bold">
-            </div>
-            <div>
-                <label class="text-[9px] font-black text-stone-400 uppercase block mb-1">Nombres</label>
-                <input type="text" id="editFirstName" oninput="handleNameInput()" class="w-full p-2 border border-stone-200 rounded text-sm font-bold">
-            </div>
-            <div>
-                <label class="text-[9px] font-black text-stone-400 uppercase block mb-1">Cargo</label>
-                <select id="editCargo" class="w-full p-2 border border-stone-200 rounded text-sm font-bold bg-stone-50">
-                    <option value="Presidente/a">Presidente/a</option>
-                    <option value="Vicepresidente/a">Vicepresidente/a</option>
-                    <option value="Jefe/a de Gabinete">Jefe/a de Gabinete</option>
-                    <option value="Ministro/a">Ministro/a</option>
-                    <option value="Diputado/a">Diputado/a</option>
-                    <option value="Senador/a">Senador/a</option>
-                </select>
-            </div>
-            <div>
-                <label class="text-[9px] font-black text-stone-400 uppercase block mb-1">Firma Proyectada</label>
-                <input type="text" id="editFirma" oninput="handleFirmaManual()" class="w-full p-2 bg-blue-50 border border-blue-100 rounded text-sm italic font-serif text-blue-800">
-            </div>
-
-            <div id="historySection" class="pt-6 border-t border-stone-100">
-                <p class="text-[9px] font-black text-stone-300 uppercase mb-3">Historial Individual</p>
-                <div id="individualHistory" class="space-y-2"></div>
-            </div>
-        </div>
-        <div class="p-6 border-t border-stone-100 flex gap-2 bg-stone-50">
-            <button onclick="saveRecord()" class="flex-grow bg-stone-900 text-white font-black py-3 rounded-lg text-[10px] uppercase tracking-widest hover:bg-black transition-all">Guardar</button>
-        </div>
-    </div>
-
-    <!-- BOTÓN COPIAR -->
-    <div id="actionFab" class="fixed bottom-6 right-6 opacity-0 translate-y-10 pointer-events-none transition-all">
-        <button onclick="copySignatures()" class="bg-stone-900 text-white px-8 py-4 rounded-full shadow-2xl flex items-center gap-3 hover:scale-105 active:scale-95 transition-all">
-            <span class="text-[10px] font-black uppercase tracking-widest">Copiar Firmas (<span id="fabCount">0</span>)</span>
-        </button>
-    </div>
-
 </body>
 </html>
