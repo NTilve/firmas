@@ -8,15 +8,26 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Configuración Global proporcionada por el entorno
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // CONFIGURACIÓN REAL DE TU PROYECTO FIREBASE
+        const firebaseConfig = {
+          apiKey: "AIzaSyBE--BeAKzWwTs-EjWJgQ9eN0lGX2i86dY",
+          authDomain: "firmas-75d1a.firebaseapp.com",
+          projectId: "firmas-75d1a",
+          storageBucket: "firmas-75d1a.firebasestorage.app",
+          messagingSenderId: "200832449122",
+          appId: "1:200832449122:web:86687139e17f3d0174af3b",
+          measurementId: "G-WNGPEXWDVM"
+        };
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'directorio-maestro-2026';
+        
+        // ID para organizar tus datos en la base
+        const appId = 'directorio-maestro-2026';
 
         // Estado de la App
         let records = [];
@@ -39,14 +50,11 @@
             conectoresNombres: ['de la', 'de los', 'de las', 'del', 'de', 'la', 'los', 'las']
         };
 
-        // --- AUTHENTICATION ---
+        // --- AUTENTICACIÓN ---
         const initAuth = async () => {
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // En GitHub Pages usamos el método anónimo para acceso rápido
+                await signInAnonymously(auth);
             } catch (error) {
                 console.error("Error de autenticación:", error);
             }
@@ -55,31 +63,31 @@
         onAuthStateChanged(auth, (u) => {
             user = u;
             if (user) {
-                console.log("Sesión activa:", user.uid);
+                console.log("Sesión activa en la nube:", user.uid);
                 initDataListeners();
             }
         });
 
-        // --- DATA LISTENERS (Real-time) ---
+        // --- ESCUCHA DE DATOS EN TIEMPO REAL ---
         const initDataListeners = () => {
             if (!user) return;
 
-            // Escuchar Registros
-            const qRecords = collection(db, 'artifacts', appId, 'public', 'data', 'autoridades');
+            // Escuchar Autoridades (Colección: autoridades)
+            const qRecords = collection(db, 'autoridades');
             onSnapshot(qRecords, (snapshot) => {
                 records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderAll();
             }, (error) => console.error("Error cargando registros:", error));
 
-            // Escuchar Historial Global
-            const qHistory = collection(db, 'artifacts', appId, 'public', 'data', 'historial');
+            // Escuchar Historial (Colección: historial)
+            const qHistory = collection(db, 'historial');
             onSnapshot(qHistory, (snapshot) => {
                 globalVersions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderGlobalHistory();
             });
         };
 
-        // --- LÓGICA DE NEGOCIO ---
+        // --- LÓGICA DE FIRMAS ---
         window.generateAutoFirma = (nombres, apellidos) => {
             if (!nombres.trim() && !apellidos.trim()) return "";
             const parts = nombres.trim().split(/\s+/);
@@ -120,13 +128,13 @@
 
             try {
                 if (activeEditId === null) {
-                    const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'autoridades'), {
+                    await addDoc(collection(db, 'autoridades'), {
                         ...data,
                         history: [{ date: now, action: "Alta de registro.", user: user.uid }]
                     });
                     await registerGlobalEvent(`Alta: ${lastName}`);
                 } else {
-                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'autoridades', activeEditId);
+                    const docRef = doc(db, 'autoridades', activeEditId);
                     const currentRecord = records.find(r => r.id === activeEditId);
                     const newHistory = [...(currentRecord.history || []), { date: now, action: "Edición.", user: user.uid }];
                     await updateDoc(docRef, { ...data, history: newHistory });
@@ -141,7 +149,7 @@
         window.deleteRecord = async (id) => {
             if (!user) return;
             const r = records.find(x => x.id === id);
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'autoridades', id);
+            const docRef = doc(db, 'autoridades', id);
             const now = new Date().toLocaleString('es-AR').slice(0, 16);
             const newHistory = [...(r.history || []), { date: now, action: "Enviado a papelera.", user: user.uid }];
 
@@ -151,14 +159,14 @@
 
         window.restoreRecord = async (id) => {
             if (!user) return;
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'autoridades', id);
+            const docRef = doc(db, 'autoridades', id);
             await updateDoc(docRef, { active: true });
             await registerGlobalEvent(`Restauración ID: ${id}`);
         };
 
         const registerGlobalEvent = async (msg) => {
             const now = new Date().toLocaleString('es-AR').slice(0, 16);
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'historial'), {
+            await addDoc(collection(db, 'historial'), {
                 date: now,
                 desc: msg,
                 user: user.uid,
@@ -166,7 +174,7 @@
             });
         };
 
-        // UI Handlers (Exponer al objeto window para que el HTML los vea)
+        // --- UI HANDLERS ---
         window.handleNameInput = () => {
             if (isFirmaDirty) return;
             const n = document.getElementById('editFirstName').value;
@@ -236,7 +244,7 @@
             document.body.removeChild(dummy);
         };
 
-        // Render Functions
+        // --- RENDERIZADO ---
         const renderAll = () => {
             renderTable();
             renderTrash();
@@ -253,25 +261,31 @@
                 (r.apellido.toLowerCase().includes(search) || r.firma.toLowerCase().includes(search))
             ).sort((a,b) => a.apellido.localeCompare(b.apellido));
 
-            body.innerHTML = filtered.map(r => `
-                <tr class="row-${r.grupo} hover:bg-stone-50 cursor-pointer border-b border-stone-100 transition-colors ${selectedOrder.includes(r.id) ? 'bg-blue-50/30' : ''}" onclick="openEditPanel('${r.id}', event)">
-                    <td class="px-4 py-3" onclick="event.stopPropagation()">
-                        <input type="checkbox" class="w-4 h-4 rounded" ${selectedOrder.includes(r.id) ? 'checked' : ''} onchange="toggleSelect('${r.id}')">
-                    </td>
-                    <td class="px-4 py-3 font-bold text-stone-700">${r.apellido}, ${r.nombres}</td>
-                    <td class="px-4 py-3 text-stone-400 text-xs">${r.cargo}</td>
-                    <td class="px-4 py-3 italic font-serif text-blue-700 select-all">${r.firma}</td>
-                    <td class="px-4 py-3 text-right" onclick="event.stopPropagation()">
-                        <button onclick="deleteRecord('${r.id}')" class="hover:text-red-500 text-stone-300 transition-colors">🗑️</button>
-                    </td>
-                </tr>
-            `).join('');
+            if (filtered.length === 0) {
+                body.innerHTML = '<tr><td colspan="5" class="text-center py-12 text-stone-300">No hay registros para mostrar.</td></tr>';
+            } else {
+                body.innerHTML = filtered.map(r => `
+                    <tr class="row-${r.grupo} hover:bg-stone-50 cursor-pointer border-b border-stone-100 transition-colors ${selectedOrder.includes(r.id) ? 'bg-blue-50/30' : ''}" onclick="openEditPanel('${r.id}', event)">
+                        <td class="px-4 py-3" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="w-4 h-4 rounded" ${selectedOrder.includes(r.id) ? 'checked' : ''} onchange="toggleSelect('${r.id}')">
+                        </td>
+                        <td class="px-4 py-3 font-bold text-stone-700">${r.apellido}, ${r.nombres}</td>
+                        <td class="px-4 py-3 text-stone-400 text-xs">${r.cargo}</td>
+                        <td class="px-4 py-3 italic font-serif text-blue-700 select-all">${r.firma}</td>
+                        <td class="px-4 py-3 text-right" onclick="event.stopPropagation()">
+                            <button onclick="deleteRecord('${r.id}')" class="hover:text-red-500 text-stone-300 transition-colors">🗑️</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
             document.getElementById('counterLabel').innerText = `${filtered.length} Registros Activos`;
         };
 
         const renderTrash = () => {
             const deleted = records.filter(r => !r.active);
-            document.getElementById('trashTableBody').innerHTML = deleted.map(r => `
+            document.getElementById('trashTableBody').innerHTML = deleted.length === 0 
+                ? '<tr><td class="p-8 text-center text-stone-300">Papelera vacía</td></tr>'
+                : deleted.map(r => `
                 <tr class="border-b border-stone-100">
                     <td class="px-4 py-3 font-bold text-stone-600">${r.apellido}, ${r.nombres}</td>
                     <td class="px-4 py-3 text-right">
@@ -283,10 +297,12 @@
 
         const renderGlobalHistory = () => {
             const sortedHistory = globalVersions.sort((a,b) => b.timestamp - a.timestamp);
-            document.getElementById('versionTimeline').innerHTML = sortedHistory.slice(0, 20).map(v => `
+            document.getElementById('versionTimeline').innerHTML = sortedHistory.length === 0
+                ? '<p class="text-stone-300 text-center py-8">Sin actividad registrada.</p>'
+                : sortedHistory.slice(0, 20).map(v => `
                 <div class="bg-white p-3 rounded-lg border border-stone-100 shadow-sm flex gap-3 text-xs mb-2">
                     <div class="font-black text-blue-500 uppercase min-w-[100px]">${v.date}</div>
-                    <div class="text-stone-600 font-medium">${v.desc} <span class="text-[9px] text-stone-300 ml-2">por ${v.user.slice(-4)}</span></div>
+                    <div class="text-stone-600 font-medium">${v.desc} <span class="text-[9px] text-stone-300 ml-2">ID: ${v.user.slice(-4)}</span></div>
                 </div>
             `).join('');
         };
@@ -314,7 +330,7 @@
             document.getElementById(`tab-${tab}`).classList.add('border-b-2', 'border-stone-800', 'text-stone-800');
         };
 
-        // Iniciar
+        // Iniciar Auth al cargar
         initAuth();
         document.getElementById('masterSearch').addEventListener('input', renderTable);
     </script>
@@ -330,17 +346,16 @@
 
     <header class="bg-white border-b border-stone-200 py-4 sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
-            <h1 class="text-xl font-black text-stone-800 tracking-tight">🏛️ Directorio Cloud 2026</h1>
+            <h1 class="text-xl font-black text-stone-800 tracking-tight">🏛️ Directorio Maestro 2026</h1>
             <nav class="flex gap-6 text-[10px] font-black text-stone-400 uppercase tracking-widest">
                 <button onclick="switchTab('main')" id="tab-main" class="py-2 border-b-2 border-stone-800 text-stone-800">Directorio</button>
-                <button onclick="switchTab('history')" id="tab-history" class="py-2">Log Global</button>
+                <button onclick="switchTab('history')" id="tab-history" class="py-2">Actividad</button>
                 <button onclick="switchTab('trash')" id="tab-trash" class="py-2">Papelera</button>
             </nav>
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto px-4 py-6">
-        <!-- VISTA PRINCIPAL -->
         <div id="view-main" class="view-section">
             <div class="flex flex-col md:flex-row gap-3 mb-6">
                 <div class="flex-grow relative">
@@ -349,10 +364,10 @@
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 opacity-30">🔍</span>
                 </div>
                 <div id="groupFilters" class="flex gap-1 bg-stone-200/50 p-1 rounded-lg">
-                    <button onclick="setFilter('all')" data-filter="all" class="bg-stone-900 text-white px-4 py-1.5 rounded-md text-[9px] font-black uppercase tracking-tighter">Todos</button>
-                    <button onclick="setFilter('ejecutivo')" data-filter="ejecutivo" class="px-4 py-1.5 rounded-md text-[9px] font-black uppercase tracking-tighter">Ejecutivo</button>
-                    <button onclick="setFilter('senadores')" data-filter="senadores" class="px-4 py-1.5 rounded-md text-[9px] font-black uppercase tracking-tighter">Senado</button>
-                    <button onclick="setFilter('diputados')" data-filter="diputados" class="px-4 py-1.5 rounded-md text-[9px] font-black uppercase tracking-tighter">Diputados</button>
+                    <button onclick="setFilter('all')" data-filter="all" class="bg-stone-900 text-white px-4 py-1.5 rounded-md text-[9px] font-black uppercase">Todos</button>
+                    <button onclick="setFilter('ejecutivo')" data-filter="ejecutivo" class="px-4 py-1.5 rounded-md text-[9px] font-black uppercase">Ejecutivo</button>
+                    <button onclick="setFilter('senadores')" data-filter="senadores" class="px-4 py-1.5 rounded-md text-[9px] font-black uppercase">Senado</button>
+                    <button onclick="setFilter('diputados')" data-filter="diputados" class="px-4 py-1.5 rounded-md text-[9px] font-black uppercase">Diputados</button>
                 </div>
                 <button onclick="openCreatePanel()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-black text-[10px] uppercase shadow-md">+ Nuevo</button>
             </div>
@@ -368,19 +383,19 @@
                             <th class="px-4 py-3 w-10"></th>
                         </tr>
                     </thead>
-                    <tbody id="masterTableBody" class="text-sm"></tbody>
+                    <tbody id="masterTableBody" class="text-sm">
+                        <tr><td colspan="5" class="text-center py-20 text-stone-300">Iniciando conexión segura...</td></tr>
+                    </tbody>
                 </table>
             </div>
             <p id="counterLabel" class="mt-4 text-[9px] font-black text-stone-400 uppercase tracking-widest text-center"></p>
         </div>
 
-        <!-- VISTA HISTORIAL -->
         <div id="view-history" class="view-section hidden">
             <h2 class="text-xs font-black uppercase mb-4 text-stone-400 tracking-widest">Actividad Reciente</h2>
             <div id="versionTimeline"></div>
         </div>
 
-        <!-- VISTA PAPELERA -->
         <div id="view-trash" class="view-section hidden">
             <h2 class="text-xs font-black uppercase mb-4 text-red-400 tracking-widest">Registros Eliminados</h2>
             <div class="bg-white rounded-xl border border-stone-200 overflow-hidden">
