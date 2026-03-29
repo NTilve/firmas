@@ -274,6 +274,35 @@
         </div>
     </div>
 
+    <!-- MODAL DUPLICADO ACTIVO -->
+    <div id="activeDupModal" class="fixed inset-0 bg-black/30 hidden z-[90] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col">
+            <!-- Header -->
+            <div class="px-5 pt-5 pb-4 border-b border-stone-100 flex items-start gap-3 bg-amber-50 rounded-t-2xl">
+                <span class="text-xl mt-0.5">⚠️</span>
+                <div class="flex-grow min-w-0">
+                    <h3 class="font-black text-stone-800 text-sm uppercase tracking-tight">Posible duplicado</h3>
+                    <p id="activeDupSubtitle" class="text-[10px] text-amber-600 font-bold uppercase mt-0.5 tracking-widest"></p>
+                </div>
+                <button onclick="resolveActiveDup('cancel')" class="text-xl text-stone-300 hover:text-stone-600 leading-none shrink-0">&times;</button>
+            </div>
+            <!-- Lista de duplicados encontrados -->
+            <div class="px-5 pt-4 pb-2 space-y-2 max-h-60 overflow-y-auto" id="activeDupList"></div>
+            <p class="px-5 pt-1 pb-3 text-[10px] text-stone-400 italic leading-relaxed">Estas personas ya están en el directorio activo. Podría tratarse de la misma persona con datos ligeramente distintos.</p>
+            <!-- Acciones globales -->
+            <div class="px-5 pb-5 pt-3 border-t border-stone-100 flex flex-col gap-2 bg-stone-50 rounded-b-2xl">
+                <button onclick="resolveActiveDup('continue')"
+                    class="w-full bg-stone-800 hover:bg-stone-900 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest transition-all">
+                    Ignorar y guardar igual
+                </button>
+                <button onclick="resolveActiveDup('cancel')"
+                    class="w-full text-stone-400 hover:text-stone-600 font-bold py-2 rounded-lg text-xs uppercase tracking-widest transition-all">
+                    Cancelar — volver al formulario
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- ACCIONES FLOTANTES -->
     <div id="actionFab" class="fixed bottom-6 right-6 flex flex-col items-end gap-3 opacity-0 translate-y-10 pointer-events-none transition-all">
         <button onclick="copySignatures()" class="pointer-events-auto bg-stone-900 text-white px-8 py-4 rounded-full shadow-2xl flex items-center gap-3 hover:scale-105 transition-transform">
@@ -625,7 +654,6 @@
             const firstName = document.getElementById('editFirstName').value.trim();
             const firma     = document.getElementById('editFirma').value.trim();
             const cargo     = document.getElementById('editCargo').value;
-            const now       = new Date().toLocaleString('es-AR', { hour12: false }).slice(0, 16);
 
             if (!lastName || !firstName) return;
 
@@ -649,35 +677,116 @@
                 grupo: CONFIG.grupos[cargo]
             };
 
-            if (activeEditId === null) {
+            // Verificar duplicados activos (crear y editar)
+            const activeDups = findActiveDuplicates(lastName, firstName, activeEditId);
+            if (activeDups.length > 0) {
+                showActiveDupModal(activeDups, () => proceedSave(data, activeEditId));
+                return;
+            }
+
+            await proceedSave(data, activeEditId);
+        }
+
+        async function proceedSave(data, editId) {
+            const now = new Date().toLocaleString('es-AR', { hour12: false }).slice(0, 16);
+
+            if (editId === null) {
                 // Buscar coincidencias en papelera antes de crear
-                const matches = findTrashMatches(lastName, firstName);
+                const matches = findTrashMatches(data.apellido, data.nombres);
                 if (matches.length > 0) {
                     openTrashMatchModal(matches, data);
                     return;
                 }
-                // Sin coincidencia: crear normalmente
                 await performCreateRecord(data, now);
             } else {
                 // EDICIÓN: comparar campo a campo
-                const r = records.find(x => x.firebaseId === activeEditId);
+                const r = records.find(x => x.firebaseId === editId);
                 const camposAComparar = ['apellido', 'nombres', 'cargo', 'firma'];
-                const valoresNuevos = { apellido: lastName, nombres: firstName, cargo, firma: firmaFinal };
+                const valoresNuevos = { apellido: data.apellido, nombres: data.nombres, cargo: data.cargo, firma: data.firma };
                 const cambios = camposAComparar
                     .filter(campo => (r[campo] || '') !== (valoresNuevos[campo] || ''))
                     .map(campo => ({ campo, anterior: r[campo] || '', nuevo: valoresNuevos[campo] || '' }));
 
                 const updatedHistory = [...(r.history || []), { date: now, action: "Modificación de datos.", tipo: 'edicion' }];
-                await updateDoc(doc(db, "autoridades", activeEditId), { ...data, active: true, lastUpdate: now, history: updatedHistory });
+                await updateDoc(doc(db, "autoridades", editId), { ...data, active: true, lastUpdate: now, history: updatedHistory });
 
                 if (cambios.length > 0) {
-                    await registrarEvento({ tipo: 'edicion', nombre: `${lastName}, ${firstName}`, cambios });
+                    await registrarEvento({ tipo: 'edicion', nombre: `${data.apellido}, ${data.nombres}`, cambios });
                 }
                 closeEditPanel();
             }
         }
 
-        // ─── BÚSQUEDA DE COINCIDENCIAS EN PAPELERA ───────────────────
+        // ─── DUPLICADOS EN LISTADO ACTIVO ────────────────────────────
+
+        // Devuelve registros activos que coincidan (apellido exacto + cualquier nombre en común), excluyendo el propio ID
+        function findActiveDuplicates(lastName, firstName, excludeId = null) {
+            const normLast = normalizeStr(lastName);
+            const newTokens = new Set(
+                normalizeStr(firstName).split(/\s+/).filter(t => t.length > 1 && !CONFIG.conectoresNombres.includes(t))
+            );
+            return records.filter(r => {
+                if (!r.active) return false;
+                if (r.firebaseId === excludeId) return false;
+                if (normalizeStr(r.apellido) !== normLast) return false;
+                const rTokens = normalizeStr(r.nombres).split(/\s+/).filter(t => t.length > 1 && !CONFIG.conectoresNombres.includes(t));
+                return rTokens.some(t => newTokens.has(t));
+            });
+        }
+
+        let pendingActiveDup = null; // { continueFn }
+
+        function showActiveDupModal(duplicates, continueFn) {
+            const grupoLabel = { ejecutivo: 'Ejecutivo', diputados: 'Diputados', senadores: 'Senado' };
+            const grupoColor = { ejecutivo: 'text-slate-500', diputados: 'text-sky-500', senadores: 'text-rose-400' };
+
+            document.getElementById('activeDupSubtitle').innerText =
+                duplicates.length === 1 ? '1 registro coincidente en el directorio' : `${duplicates.length} registros coincidentes en el directorio`;
+
+            document.getElementById('activeDupList').innerHTML = duplicates.map(r => {
+                const lastMod = r.lastUpdate || [...(r.history || [])].pop()?.date || '—';
+                const gLabel = grupoLabel[r.grupo] || r.grupo;
+                const gColor = grupoColor[r.grupo] || 'text-stone-400';
+                return `
+                <div class="bg-white border border-stone-200 rounded-xl px-3 py-2.5">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0 flex-grow">
+                            <p class="font-black text-stone-700 text-sm truncate">${r.apellido}, ${r.nombres}</p>
+                            <p class="text-xs text-stone-400 font-medium">${r.cargo}</p>
+                            <p class="italic font-serif text-blue-600 text-xs mt-0.5 truncate">${r.firma}</p>
+                        </div>
+                        <div class="flex flex-col items-end gap-1.5 shrink-0">
+                            <span class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-stone-100 ${gColor}">${gLabel}</span>
+                            <button onclick="resolveActiveDup('edit','${r.firebaseId}')"
+                                class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border border-blue-200 text-blue-500 hover:bg-blue-50 transition-all whitespace-nowrap">
+                                Editar este
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-[9px] text-stone-300 mt-1.5 font-medium">Últ. mod.: ${lastMod}</p>
+                </div>`;
+            }).join('');
+
+            pendingActiveDup = { continueFn };
+            document.getElementById('activeDupModal').classList.remove('hidden');
+        }
+
+        window.resolveActiveDup = function(choice, firebaseId) {
+            document.getElementById('activeDupModal').classList.add('hidden');
+            if (!pendingActiveDup) return;
+            const { continueFn } = pendingActiveDup;
+            pendingActiveDup = null;
+            if (choice === 'continue') {
+                continueFn();
+            } else if (choice === 'edit') {
+                // Cerrar el panel actual y abrir el del duplicado
+                closeEditPanel();
+                openEditPanel(firebaseId, null);
+            }
+            // 'cancel' → no hace nada, el panel sigue abierto
+        }
+
+
 
         function normalizeStr(s) {
             return (s || '')
