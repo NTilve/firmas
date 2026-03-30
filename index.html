@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Directorio Maestro 2026 - Cloud v3.0</title>
+    <title>ICN - Cloud v3.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .row-diputados { border-left: 4px solid #38bdf8; }
@@ -25,6 +25,18 @@
         .badge-edicion { background:#dbeafe; color:#1e40af; }
         .badge-baja { background:#fee2e2; color:#991b1b; }
         .badge-restauracion { background:#fef9c3; color:#854d0e; }
+        /* Toast de notificación */
+        #toast {
+            position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%) translateY(1rem);
+            background: #1f2937; color: white; padding: 10px 20px; border-radius: 9999px;
+            font-size: 12px; font-weight: 700; letter-spacing: .04em;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            z-index: 200; white-space: nowrap;
+        }
+        #toast.show {
+            opacity: 1; transform: translateX(-50%) translateY(0);
+        }
     </style>
 </head>
 <body class="bg-stone-50 text-stone-900 font-sans antialiased overflow-x-hidden">
@@ -59,7 +71,8 @@
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">🔍</span>
                         </div>
                         <button onclick="openCreatePanel()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-black text-xs uppercase flex items-center gap-2 shadow-md transition-all">
-                            <span>+</span> Nuevo
+                            <span class="sm:hidden text-base leading-none">+</span>
+                            <span class="hidden sm:inline">+ Nuevo</span>
                         </button>
                     </div>
                     <div id="groupFilters" class="flex gap-1 bg-stone-100 p-1 rounded-lg">
@@ -69,12 +82,10 @@
                         <button onclick="setFilter('diputados')" data-filter="diputados" class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent transition-all">Diputados</button>
                     </div>
                 </div>
-
-
             </div>
 
             <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
-                <div class="overflow-x-auto max-h-[70vh]">
+                <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-stone-50 border-b border-stone-200 sticky top-0 z-10">
                             <tr>
@@ -299,6 +310,9 @@
             </div>
         </div>
     </div>
+
+    <!-- TOAST DE NOTIFICACIÓN -->
+    <div id="toast"></div>
 
     <!-- ACCIONES FLOTANTES -->
     <div id="actionFab" class="fixed bottom-6 right-6 flex flex-col items-end gap-3 opacity-0 translate-y-10 pointer-events-none transition-all">
@@ -717,6 +731,8 @@
                     await updateDoc(doc(db, "autoridades", editId), { ...data, active: true, lastUpdate: now, history: updatedHistory });
                     if (cambios.length > 0) {
                         await registrarEvento({ tipo: 'edicion', nombre: `${data.apellido}, ${data.nombres}`, cambios });
+                        showToast(`✓ ${data.apellido} actualizado`);
+
                     }
                 }
                 closeEditPanel();
@@ -964,7 +980,7 @@
                 tipo: 'restauracion',
                 nombre: `${dataToUse.apellido}, ${dataToUse.nombres}`
             });
-
+            showToast(`✓ ${dataToUse.apellido} restaurado al directorio`);
             closeEditPanel();
         }
 
@@ -980,6 +996,7 @@
                 nombre: `${data.apellido}, ${data.nombres}`,
                 datos: { apellido: data.apellido, nombres: data.nombres, cargo: data.cargo, firma: data.firma }
             });
+            showToast(`✓ ${data.apellido} agregado al directorio`);
             closeEditPanel();
         }
 
@@ -1007,6 +1024,7 @@
             await updateDoc(doc(db, "autoridades", id), { active: false, history: updatedHistory });
             selectedOrder = selectedOrder.filter(sid => sid !== id);
             await registrarEvento({ tipo: 'baja', nombre: `${r.apellido}, ${r.nombres}` });
+            showToast(`${r.apellido} eliminado del directorio`);
         }
 
         window.cancelDelete = function() {
@@ -1069,6 +1087,7 @@
             await updateDoc(doc(db, "autoridades", id), { active: false, history: updatedHistory });
             selectedOrder = selectedOrder.filter(sid => sid !== id);
             await registrarEvento({ tipo: 'baja', nombre: `${r.apellido}, ${r.nombres}` });
+            showToast(`${r.apellido} eliminado del directorio`);
             document.getElementById('capacityModal').classList.add('hidden');
         }
 
@@ -1082,6 +1101,7 @@
                 tipo: 'restauracion',
                 nombre: `${r.apellido}, ${r.nombres}`
             });
+            showToast(`✓ ${r.apellido} restaurado`);
         }
 
         async function registrarEvento(payload) {
@@ -1243,6 +1263,16 @@
         }
 
         document.getElementById('masterSearch').addEventListener('input', renderTable);
+
+        // ─── TOAST ────────────────────────────────────────────────────
+        let toastTimer = null;
+        function showToast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+        }
 
         init();
     </script>
