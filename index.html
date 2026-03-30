@@ -18,6 +18,8 @@
         .panel-visible { transform: translateX(0); }
         .tab-active { border-bottom: 2px solid #1f2937; color: #1f2937; }
         .filter-btn-active { background-color: #1f2937; color: white; border-color: #1f2937; }
+        .filter-btn-active:hover { background-color: #374151; }
+        #groupFilters button:not(.filter-btn-active):hover { background-color: white; }
         #logPanel { transition: transform 0.3s ease-in-out; }
         .badge-alta { background:#dcfce7; color:#166534; }
         .badge-edicion { background:#dbeafe; color:#1e40af; }
@@ -29,10 +31,18 @@
 
     <header class="bg-white border-b border-stone-200 py-4 sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
-            <h1 class="text-xl font-black text-stone-800 tracking-tight">🏛️ Directorio Maestro 2026 <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded ml-2 uppercase">Cloud</span></h1>
+            <!-- LOGO + nombre alineados en la base -->
+            <button onclick="switchTab('main')" class="flex items-end gap-2 group outline-none" title="Volver al Directorio">
+                <img src="assets/logo.png" alt="FIRMAS" class="hidden md:block h-9 object-contain">
+                <img src="assets/logo-sm.png" alt="FIRMAS" class="block md:hidden h-8 object-contain">
+                <span class="text-lg font-normal tracking-tighter text-stone-800 group-hover:text-blue-600 transition-colors leading-none mb-0.5">FIRMAS</span>
+                <span class="text-[9px] text-stone-300 font-normal leading-none mb-0.5">v3.1</span>
+            </button>
             <nav class="flex gap-6 text-xs font-bold text-stone-400">
-                <button onclick="switchTab('main')" id="tab-main" class="tab-active py-2 uppercase">Directorio</button>
-                <button onclick="switchTab('trash')" id="tab-trash" class="py-2 uppercase">Papelera</button>
+                <button onclick="switchTab('history')" id="tab-history" class="py-2 uppercase flex items-center gap-1.5">
+                    <span class="hidden sm:inline">Historial</span>
+                    <span class="sm:hidden text-base leading-none" title="Historial">🕐</span>
+                </button>
             </nav>
         </div>
     </header>
@@ -54,21 +64,13 @@
                     </div>
                     <div id="groupFilters" class="flex gap-1 bg-stone-100 p-1 rounded-lg">
                         <button onclick="setFilter('all')" data-filter="all" class="filter-btn-active px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent transition-all">Todos</button>
-                        <button onclick="setFilter('ejecutivo')" data-filter="ejecutivo" class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent hover:bg-white transition-all">Ejecutivo</button>
-                        <button onclick="setFilter('senadores')" data-filter="senadores" class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent hover:bg-white transition-all">Senado</button>
-                        <button onclick="setFilter('diputados')" data-filter="diputados" class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent hover:bg-white transition-all">Diputados</button>
+                        <button onclick="setFilter('ejecutivo')" data-filter="ejecutivo" class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent transition-all">Ejecutivo</button>
+                        <button onclick="setFilter('senadores')" data-filter="senadores" class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent transition-all">Senado</button>
+                        <button onclick="setFilter('diputados')" data-filter="diputados" class="px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent transition-all">Diputados</button>
                     </div>
                 </div>
 
-                <!-- BARRA DE VERSIÓN -->
-                <div class="flex items-center gap-2 bg-white border border-stone-200 rounded-lg px-3 py-2 shadow-sm">
-                    <span class="text-[10px] font-black text-stone-400 uppercase tracking-widest whitespace-nowrap">Versión:</span>
-                    <select id="versionSelect" onchange="onVersionChange()" class="flex-grow text-xs font-bold text-stone-700 bg-transparent outline-none cursor-pointer">
-                        <option value="live">Cargando...</option>
-                    </select>
-                    <button onclick="openLogPanel()" title="Ver log de cambios de esta versión"
-                        class="text-stone-300 hover:text-blue-500 transition-colors text-lg leading-none px-1" id="logBtn">📋</button>
-                </div>
+
             </div>
 
             <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
@@ -90,13 +92,22 @@
             <div id="counterLabel" class="mt-4 text-[10px] font-black text-stone-400 uppercase tracking-widest">Cargando datos...</div>
         </div>
 
-        <!-- VISTA PAPELERA -->
-        <div id="view-trash" class="view-section hidden">
-            <h2 class="text-sm font-black uppercase mb-4 text-red-500">Papelera</h2>
-            <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
-                <table class="w-full text-left">
-                    <tbody id="trashTableBody" class="text-sm"></tbody>
-                </table>
+        <!-- VISTA HISTORIAL -->
+        <div id="view-history" class="view-section hidden">
+            <div class="max-w-lg mx-auto">
+                <div class="mb-6">
+                    <h2 class="text-sm font-black uppercase text-stone-800 tracking-tight">Historial de Versiones</h2>
+                    <p class="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">Registro de todos los cambios del directorio</p>
+                </div>
+                <div class="flex items-center gap-2 bg-white border border-stone-200 rounded-lg px-3 py-2 shadow-sm mb-6">
+                    <span class="text-[10px] font-black text-stone-400 uppercase tracking-widest whitespace-nowrap">Fecha:</span>
+                    <select id="historyVersionSelect" onchange="renderHistoryView()" class="flex-grow text-xs font-bold text-stone-700 bg-transparent outline-none cursor-pointer">
+                        <option value="live">Cargando...</option>
+                    </select>
+                </div>
+                <div id="historyBody" class="space-y-3">
+                    <p class="text-stone-300 italic text-sm text-center mt-10">Cargando historial...</p>
+                </div>
             </div>
         </div>
     </main>
@@ -156,20 +167,6 @@
         </div>
     </div>
 
-    <!-- PANEL DE LOG DE VERSIÓN -->
-    <div id="logPanelOverlay" class="fixed inset-0 bg-black/20 hidden z-50" onclick="closeLogPanel()"></div>
-    <div id="logPanel" class="fixed top-0 right-0 h-full w-full max-w-lg bg-white shadow-2xl z-[60] panel-hidden flex flex-col">
-        <div class="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50">
-            <div>
-                <h3 id="logPanelTitle" class="font-black text-stone-800 uppercase tracking-tight">Log de Cambios</h3>
-                <p id="logPanelSub" class="text-[9px] text-stone-400 font-bold uppercase mt-0.5"></p>
-            </div>
-            <button onclick="closeLogPanel()" class="text-2xl text-stone-300 hover:text-stone-600">&times;</button>
-        </div>
-        <div class="p-6 flex-grow overflow-y-auto space-y-4" id="logPanelBody">
-        </div>
-    </div>
-
     <!-- MODAL CONFIRMACIÓN DE BORRADO -->
     <div id="deleteModal" class="fixed inset-0 bg-black/30 hidden z-[80] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 flex flex-col gap-4">
@@ -180,7 +177,7 @@
                     <p id="deleteModalName" class="text-sm font-bold text-stone-500 mt-0.5"></p>
                 </div>
             </div>
-            <p class="text-sm text-stone-600 leading-relaxed">Este registro será enviado a la <span class="font-bold">Papelera</span>. No se elimina definitivamente: podés restaurarlo en cualquier momento desde la pestaña Papelera y volver a incorporarlo al directorio.</p>
+            <p class="text-sm text-stone-600 leading-relaxed">Este registro será enviado a la papelera. No se elimina definitivamente: podés buscarlo en el directorio y hacer clic sobre él para editarlo y reactivarlo cuando quieras.</p>
             <div class="flex gap-2 pt-1">
                 <button onclick="confirmDelete()" class="flex-grow bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest transition-all">Sí, eliminar</button>
                 <button onclick="cancelDelete()" class="px-6 bg-white border border-stone-200 text-stone-400 font-bold py-3 rounded-lg text-xs uppercase tracking-widest hover:bg-stone-50 transition-all">Cancelar</button>
@@ -408,79 +405,45 @@
             return dates; // ya vienen ordenadas desc porque globalEvents está desc
         }
 
-        function updateVersionSelect() {
-            const sel = document.getElementById('versionSelect');
-            const dates = getVersionDates();
+        function buildVersionOpts(dates) {
             const today = new Date().toLocaleDateString('es-AR');
-
-            let opts = '';
-            if (dates.length === 0) {
-                opts = '<option value="live">Última versión (sin cambios aún)</option>';
-            } else {
-                const latest = dates[0];
-                opts += `<option value="live">Última versión (${latest})</option>`;
-                for (const d of dates) {
-                    const label = d === today ? `${d} — hoy` : d;
-                    opts += `<option value="${d}">${label}</option>`;
-                }
+            if (dates.length === 0) return '<option value="live">Última versión (sin cambios aún)</option>';
+            const latest = dates[0];
+            let opts = `<option value="live">Última versión (${latest})</option>`;
+            for (const d of dates) {
+                const label = d === today ? `${d} — hoy` : d;
+                opts += `<option value="${d}">${label}</option>`;
             }
-            sel.innerHTML = opts;
-            // restaurar selección si sigue disponible
-            if (currentVersionDate !== 'live' && dates.includes(currentVersionDate)) {
-                sel.value = currentVersionDate;
-            } else {
-                currentVersionDate = 'live';
-                sel.value = 'live';
-            }
+            return opts;
         }
 
-        window.onVersionChange = function() {
-            currentVersionDate = document.getElementById('versionSelect').value;
-            // La tabla siempre muestra el estado actual; la versión solo afecta al log
-            // Si se selecciona una versión pasada, mostramos aviso visual
-            const banner = document.getElementById('versionBanner');
-            if (banner) banner.remove();
-            if (currentVersionDate !== 'live') {
-                const banner = document.createElement('div');
-                banner.id = 'versionBanner';
-                banner.className = 'mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-xs text-amber-700 font-bold flex items-center gap-2';
-                banner.innerHTML = `📅 Mostrando log del <span class="underline">${currentVersionDate}</span>. La tabla siempre refleja el estado actual. <button onclick="resetToLive()" class="ml-auto text-amber-500 hover:text-amber-700 underline">Volver a hoy</button>`;
-                document.getElementById('view-main').insertBefore(banner, document.getElementById('view-main').firstChild);
+        function updateVersionSelect() {
+            const dates = getVersionDates();
+            // Selector del tab Historial
+            const hSel = document.getElementById('historyVersionSelect');
+            if (hSel) {
+                const prev = hSel.value;
+                hSel.innerHTML = buildVersionOpts(dates);
+                if (prev !== 'live' && dates.includes(prev)) hSel.value = prev;
             }
+            renderHistoryView();
         }
 
-        window.resetToLive = function() {
-            currentVersionDate = 'live';
-            document.getElementById('versionSelect').value = 'live';
-            const banner = document.getElementById('versionBanner');
-            if (banner) banner.remove();
-        }
+        // ─── VISTA HISTORIAL ──────────────────────────────────────────
 
-        // ─── PANEL DE LOG ─────────────────────────────────────────────
-
-        window.openLogPanel = function() {
-            const sel = document.getElementById('versionSelect');
-            const label = sel.options[sel.selectedIndex].text;
-            const filterDate = currentVersionDate === 'live' ? getVersionDates()[0] : currentVersionDate;
-
-            document.getElementById('logPanelTitle').innerText = 'Log de Cambios';
-            document.getElementById('logPanelSub').innerText = filterDate ? `Versión ${filterDate}` : 'Sin cambios registrados';
-
+        window.renderHistoryView = function() {
+            const hSel = document.getElementById('historyVersionSelect');
+            if (!hSel) return;
+            const selectedDate = hSel.value;
+            const filterDate = selectedDate === 'live' ? getVersionDates()[0] : selectedDate;
+            const body = document.getElementById('historyBody');
+            if (!body) return;
             const eventsOfDay = filterDate
                 ? globalEvents.filter(ev => tsToDate(ev.timestamp) === filterDate)
                 : [];
-
-            document.getElementById('logPanelBody').innerHTML = eventsOfDay.length === 0
-                ? '<p class="text-stone-300 italic text-sm text-center mt-10">No hay cambios registrados para esta versión.</p>'
+            body.innerHTML = eventsOfDay.length === 0
+                ? '<p class="text-stone-300 italic text-sm text-center mt-10">No hay cambios registrados para esta fecha.</p>'
                 : eventsOfDay.map(ev => renderLogEvent(ev)).join('');
-
-            document.getElementById('logPanelOverlay').classList.remove('hidden');
-            document.getElementById('logPanel').classList.replace('panel-hidden', 'panel-visible');
-        }
-
-        window.closeLogPanel = function() {
-            document.getElementById('logPanelOverlay').classList.add('hidden');
-            document.getElementById('logPanel').classList.replace('panel-visible', 'panel-hidden');
         }
 
         function renderLogEvent(ev) {
@@ -588,7 +551,6 @@
 
         function renderAll() {
             renderTable();
-            renderTrash();
             updateFab();
         }
 
@@ -616,18 +578,24 @@
         window.renderTable = function() {
             const body = document.getElementById('masterTableBody');
             const search = (document.getElementById('masterSearch')?.value || "").toLowerCase();
+            const hasSearch = search.length > 0;
 
             const sorted = [...records].sort((a, b) =>
                 `${a.apellido} ${a.nombres}`.toLowerCase().localeCompare(`${b.apellido} ${b.nombres}`.toLowerCase())
             );
 
-            const filtered = sorted.filter(r =>
+            const active = sorted.filter(r =>
                 r.active &&
                 (currentFilter === 'all' || r.grupo === currentFilter) &&
                 (r.apellido.toLowerCase().includes(search) || r.firma.toLowerCase().includes(search))
             );
 
-            body.innerHTML = filtered.map(r => {
+            const deleted = hasSearch ? sorted.filter(r =>
+                !r.active &&
+                (r.apellido.toLowerCase().includes(search) || r.firma.toLowerCase().includes(search))
+            ) : [];
+
+            const activeRows = active.map(r => {
                 const isSelected = selectedOrder.includes(r.firebaseId);
                 return `
                     <tr class="row-${r.grupo} hover:bg-stone-50 cursor-pointer transition-all ${isSelected ? 'selected-row' : ''}" onclick="openEditPanel('${r.firebaseId}', event)">
@@ -641,10 +609,34 @@
                             <button onclick="deleteRecord('${r.firebaseId}')" class="text-stone-200 hover:text-red-500 transition-colors p-2">🗑️</button>
                         </td>
                     </tr>`;
-            }).join(filtered.length ? '' : '<tr><td colspan="5" class="p-10 text-center text-stone-300 italic">No hay registros</td></tr>');
+            });
+
+            const deletedRows = deleted.map(r => `
+                    <tr class="opacity-40 cursor-pointer hover:opacity-60 transition-opacity" onclick="openEditDeletedPanel('${r.firebaseId}', event)">
+                        <td class="px-4 py-3">
+                            <input type="checkbox" class="w-4 h-4 rounded border-stone-300" disabled>
+                        </td>
+                        <td class="px-4 py-3 font-bold text-stone-500 line-through">${r.apellido}, ${r.nombres}</td>
+                        <td class="px-4 py-3 text-stone-400 font-medium">${r.cargo}</td>
+                        <td class="px-4 py-3 italic font-serif text-stone-400">${r.firma}</td>
+                        <td class="px-4 py-3 text-right">
+                            <span class="text-[9px] font-black text-stone-300 uppercase tracking-widest">Eliminado</span>
+                        </td>
+                    </tr>`);
+
+            const separator = deleted.length > 0 ? `
+                    <tr><td colspan="5" class="px-4 py-2 bg-stone-50 border-y border-stone-100">
+                        <span class="text-[9px] font-black text-stone-300 uppercase tracking-widest">En papelera — clic para editar y reactivar</span>
+                    </td></tr>` : '';
+
+            const emptyRow = active.length === 0 && deleted.length === 0
+                ? '<tr><td colspan="5" class="p-10 text-center text-stone-300 italic">No hay registros</td></tr>'
+                : '';
+
+            body.innerHTML = activeRows.join('') + separator + deletedRows.join('') + emptyRow;
 
             document.getElementById('counterLabel').innerText =
-                `${filtered.length} Visibles | ${records.filter(x => x.active).length} Totales`;
+                `${active.length} Visibles | ${records.filter(x => x.active).length} Totales`;
         }
 
         // ─── ACCIONES FIREBASE ────────────────────────────────────────
@@ -657,11 +649,13 @@
 
             if (!lastName || !firstName) return;
 
-            // Verificar cupo solo si es alta, o si el cargo cambió en una edición
-            const currentCargo = activeEditId ? records.find(x => x.firebaseId === activeEditId)?.cargo : null;
+            // Verificar cupo: siempre en alta; en edición solo si cambia el cargo; en reactivación siempre
+            const currentRecord = activeEditId ? records.find(x => x.firebaseId === activeEditId) : null;
+            const currentCargo = currentRecord?.cargo || null;
+            const wasDeleted = currentRecord ? !currentRecord.active : false;
             const isCargoChange = currentCargo !== cargo;
-            if (activeEditId === null || isCargoChange) {
-                const capacityIssue = checkCapacity(cargo, activeEditId);
+            if (activeEditId === null || isCargoChange || wasDeleted) {
+                const capacityIssue = checkCapacity(cargo, wasDeleted ? null : activeEditId);
                 if (capacityIssue) {
                     showCapacityModal(cargo, capacityIssue.ocupantes, activeEditId);
                     return;
@@ -691,7 +685,7 @@
             const now = new Date().toLocaleString('es-AR', { hour12: false }).slice(0, 16);
 
             if (editId === null) {
-                // Buscar coincidencias en papelera antes de crear
+                // ALTA: buscar coincidencias en papelera antes de crear
                 const matches = findTrashMatches(data.apellido, data.nombres);
                 if (matches.length > 0) {
                     openTrashMatchModal(matches, data);
@@ -699,19 +693,31 @@
                 }
                 await performCreateRecord(data, now);
             } else {
-                // EDICIÓN: comparar campo a campo
                 const r = records.find(x => x.firebaseId === editId);
+                const wasDeleted = !r.active;
                 const camposAComparar = ['apellido', 'nombres', 'cargo', 'firma'];
                 const valoresNuevos = { apellido: data.apellido, nombres: data.nombres, cargo: data.cargo, firma: data.firma };
                 const cambios = camposAComparar
                     .filter(campo => (r[campo] || '') !== (valoresNuevos[campo] || ''))
                     .map(campo => ({ campo, anterior: r[campo] || '', nuevo: valoresNuevos[campo] || '' }));
 
-                const updatedHistory = [...(r.history || []), { date: now, action: "Modificación de datos.", tipo: 'edicion' }];
-                await updateDoc(doc(db, "autoridades", editId), { ...data, active: true, lastUpdate: now, history: updatedHistory });
-
-                if (cambios.length > 0) {
-                    await registrarEvento({ tipo: 'edicion', nombre: `${data.apellido}, ${data.nombres}`, cambios });
+                if (wasDeleted) {
+                    // REACTIVACIÓN: restaurar + registrar cambios si los hay
+                    const updatedHistory = [...(r.history || []),
+                        { date: now, action: "Reactivado desde búsqueda.", tipo: 'restauracion' }
+                    ];
+                    await updateDoc(doc(db, "autoridades", editId), { ...data, active: true, lastUpdate: now, history: updatedHistory });
+                    await registrarEvento({ tipo: 'restauracion', nombre: `${data.apellido}, ${data.nombres}` });
+                    if (cambios.length > 0) {
+                        await registrarEvento({ tipo: 'edicion', nombre: `${data.apellido}, ${data.nombres}`, cambios });
+                    }
+                } else {
+                    // EDICIÓN normal
+                    const updatedHistory = [...(r.history || []), { date: now, action: "Modificación de datos.", tipo: 'edicion' }];
+                    await updateDoc(doc(db, "autoridades", editId), { ...data, active: true, lastUpdate: now, history: updatedHistory });
+                    if (cambios.length > 0) {
+                        await registrarEvento({ tipo: 'edicion', nombre: `${data.apellido}, ${data.nombres}`, cambios });
+                    }
                 }
                 closeEditPanel();
             }
@@ -1184,20 +1190,36 @@
             document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
             document.querySelectorAll('nav button').forEach(b => b.classList.remove('tab-active'));
             document.getElementById(`view-${tab}`).classList.remove('hidden');
-            document.getElementById(`tab-${tab}`).classList.add('tab-active');
+            const tabBtn = document.getElementById(`tab-${tab}`);
+            if (tabBtn) tabBtn.classList.add('tab-active');
+            if (tab === 'history') renderHistoryView();
         }
 
-        window.renderTrash = function() {
-            const deleted = records.filter(r => !r.active);
-            document.getElementById('trashTableBody').innerHTML = deleted.map(r => `
-                <tr class="border-b border-stone-100">
-                    <td class="px-4 py-3 font-bold text-stone-600">${r.apellido}, ${r.nombres}</td>
-                    <td class="px-4 py-3 text-stone-400">${r.cargo}</td>
-                    <td class="px-4 py-3 text-right">
-                        <button onclick="restoreRecord('${r.firebaseId}')" class="text-[10px] font-black border border-stone-200 px-4 py-1 rounded-lg uppercase tracking-widest">Restaurar</button>
-                    </td>
-                </tr>
-            `).join(deleted.length ? '' : '<tr><td colspan="3" class="p-10 text-center text-stone-300 italic">Papelera vacía</td></tr>');
+        window.openEditDeletedPanel = function(id, e) {
+            if (e && (e.target.type === 'checkbox' || e.target.tagName === 'BUTTON')) return;
+            activeEditId = id;
+            isFirmaDirty = true;
+            const r = records.find(x => x.firebaseId === id);
+            document.getElementById('panelTitle').innerText = "Reactivar Autoridad";
+            document.getElementById('editIdLabel').innerText = `Eliminado — guardar para reactivar`;
+            document.getElementById('editLastName').value = r.apellido;
+            document.getElementById('editFirstName').value = r.nombres;
+            document.getElementById('editFirma').value = r.firma;
+            document.getElementById('editCargo').value = r.cargo;
+            document.getElementById('historySection').classList.remove('hidden');
+            syncGroupFromCargo('editCargo', 'editGroupLabel');
+            updateCapacityIndicator();
+            const histBody = document.getElementById('individualHistory');
+            histBody.innerHTML = (r.history || []).slice().reverse().map(h => {
+                const tipo = h.tipo || '';
+                const color = { alta: 'text-green-600', edicion: 'text-blue-500', baja: 'text-red-400', restauracion: 'text-amber-500' }[tipo] || 'text-stone-400';
+                return `<div class="flex gap-2 mb-2 pb-2 border-b border-stone-50 last:border-0">
+                    <span class="text-stone-300 font-bold whitespace-nowrap">${h.date}</span>
+                    <span class="${color} font-bold">${h.action}</span>
+                </div>`;
+            }).join('');
+            document.getElementById('editPanelOverlay').classList.remove('hidden');
+            document.getElementById('editPanel').classList.replace('panel-hidden', 'panel-visible');
         }
 
         window.syncGroupFromCargo = function(selectId, labelId) {
