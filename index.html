@@ -6,9 +6,10 @@
     <title>ICN - Cloud v3.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .row-diputados { border-left: 4px solid #38bdf8; }
-        .row-senadores { border-left: 4px solid #fb7185; }
-        .row-ejecutivo { border-left: 4px solid #94a3b8; }
+        .row-diputados { border-left: 10px solid #38bdf8; }
+        .row-senadores { border-left: 10px solid #fb7185; }
+        .row-ejecutivo { border-left: 10px solid #94a3b8; }
+        #selectAll { margin-left: 5px; }
         .selected-row { background-color: #f0f9ff !important; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -17,9 +18,13 @@
         .panel-hidden { transform: translateX(100%); }
         .panel-visible { transform: translateX(0); }
         .tab-active { border-bottom: 2px solid #1f2937; color: #1f2937; }
-        .filter-btn-active { background-color: #1f2937; color: white; border-color: #1f2937; }
-        .filter-btn-active:hover { background-color: #374151; }
+        .filter-btn-active { color: white; }
+        .filter-btn-active:hover { opacity: 0.9; }
         #groupFilters button:not(.filter-btn-active):hover { background-color: white; }
+        .filter-all-active     { background-color: #1f2937; }
+        .filter-ejecutivo-active { background-color: #94a3b8; }
+        .filter-senadores-active { background-color: #fb7185; }
+        .filter-diputados-active { background-color: #38bdf8; }
         #logPanel { transition: transform 0.3s ease-in-out; }
         .badge-alta { background:#dcfce7; color:#166534; }
         .badge-edicion { background:#dbeafe; color:#1e40af; }
@@ -35,6 +40,1257 @@
             z-index: 200; white-space: nowrap;
         }
         #toast.show {
+            opacity: 1; transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-900 font-sans antialiased overflow-x-hidden">
+
+    <header class="bg-white border-b border-stone-200 py-4 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
+            <!-- LOGO + nombre alineados en la base -->
+            <button onclick="switchTab('main')" class="flex items-end gap-2 group outline-none" title="Volver al Directorio">
+                <img src="assets/logo.png" alt="FIRMAS" class="hidden md:block h-9 object-contain">
+                <img src="assets/logo-sm.png" alt="FIRMAS" class="block md:hidden h-8 object-contain">
+                <span class="text-lg font-normal tracking-tighter text-stone-800 group-hover:text-blue-600 transition-colors leading-none mb-0.5">FIRMAS</span>
+                <span class="text-[9px] text-stone-300 font-normal leading-none mb-0.5">v3.1</span>
+            </button>
+            <nav class="flex gap-6 text-xs font-bold text-stone-400">
+                <button onclick="switchTab('history')" id="tab-history" class="py-2 uppercase flex items-center gap-1.5">
+                    <span class="hidden sm:inline">Historial</span>
+                    <span class="sm:hidden text-base leading-none" title="Historial">🕐</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        <!-- VISTA PRINCIPAL -->
+        <div id="view-main" class="view-section">
+            <div class="flex flex-col gap-4 mb-6">
+                <div class="flex flex-col md:flex-row gap-3">
+                    <div class="flex-grow relative flex gap-2">
+                        <div class="relative flex-grow">
+                            <input type="text" id="masterSearch" placeholder="Buscar por apellido o firma..." 
+                                   class="w-full pl-10 pr-4 py-2 bg-white border border-stone-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-400 shadow-sm">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">🔍</span>
+                        </div>
+                        <button onclick="openCreatePanel()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-black text-xs uppercase flex items-center gap-2 shadow-md transition-all">
+                            <span class="sm:hidden text-base leading-none">+</span>
+                            <span class="hidden sm:inline">+ Nuevo</span>
+                        </button>
+                    </div>
+                    <div id="groupFilters" class="flex gap-1 bg-stone-100 p-1 rounded-lg w-full md:w-auto">
+                        <button onclick="setFilter('all')" data-filter="all" class="filter-btn-active filter-all-active flex-1 md:flex-none px-3 md:px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent transition-all text-center">Todos</button>
+                        <button onclick="setFilter('ejecutivo')" data-filter="ejecutivo" class="flex-1 md:flex-none px-3 md:px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent transition-all text-center">Ejecutivo</button>
+                        <button onclick="setFilter('senadores')" data-filter="senadores" class="flex-1 md:flex-none px-3 md:px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent transition-all text-center">Senado</button>
+                        <button onclick="setFilter('diputados')" data-filter="diputados" class="flex-1 md:flex-none px-3 md:px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-transparent transition-all text-center">Diputados</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-stone-50 border-b border-stone-200 sticky top-0 z-10">
+                            <tr>
+                                <th class="px-4 py-3 w-10"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" class="w-4 h-4"></th>
+                                <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400">Apellidos y Nombres</th>
+                                <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400">Firma</th>
+                                <th class="hidden md:table-cell px-4 py-3 text-[10px] font-black uppercase text-stone-400">Cargo</th>
+                                <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="masterTableBody" class="text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="counterLabel" class="mt-4 text-[10px] font-black text-stone-400 uppercase tracking-widest">Cargando datos...</div>
+        </div>
+
+        <!-- VISTA HISTORIAL -->
+        <div id="view-history" class="view-section hidden">
+            <div class="max-w-lg mx-auto">
+                <div class="mb-6">
+                    <h2 class="text-sm font-black uppercase text-stone-800 tracking-tight">Historial de Versiones</h2>
+                    <p class="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">Registro de todos los cambios del directorio</p>
+                </div>
+                <div class="flex items-center gap-2 bg-white border border-stone-200 rounded-lg px-3 py-2 shadow-sm mb-6">
+                    <span class="text-[10px] font-black text-stone-400 uppercase tracking-widest whitespace-nowrap">Fecha:</span>
+                    <select id="historyVersionSelect" onchange="renderHistoryView()" class="flex-grow text-xs font-bold text-stone-700 bg-transparent outline-none cursor-pointer">
+                        <option value="live">Cargando...</option>
+                    </select>
+                </div>
+                <div id="historyBody" class="space-y-3">
+                    <p class="text-stone-300 italic text-sm text-center mt-10">Cargando historial...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- PANEL DE EDICIÓN -->
+    <div id="editPanelOverlay" class="fixed inset-0 bg-black/20 hidden z-50" onclick="closeEditPanel()"></div>
+    <div id="editPanel" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[60] panel-hidden flex flex-col">
+        <div class="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50">
+            <div>
+                <h3 id="panelTitle" class="font-black text-stone-800 uppercase tracking-tight">Ficha de Autoridad</h3>
+                <p id="editIdLabel" class="text-[9px] text-stone-400 font-bold uppercase"></p>
+            </div>
+            <button onclick="closeEditPanel()" class="text-2xl text-stone-300 hover:text-stone-600">&times;</button>
+        </div>
+        <div class="p-6 flex-grow overflow-y-auto space-y-6">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-[10px] font-black text-stone-400 uppercase block mb-1 tracking-widest">Apellidos</label>
+                    <input type="text" id="editLastName" oninput="handleNameInput()" class="w-full p-2 bg-stone-50 border border-stone-200 rounded text-sm font-bold outline-none focus:ring-1 focus:ring-blue-400">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-stone-400 uppercase block mb-1 tracking-widest">Nombres</label>
+                    <input type="text" id="editFirstName" oninput="handleNameInput()" class="w-full p-2 bg-stone-50 border border-stone-200 rounded text-sm font-bold outline-none focus:ring-1 focus:ring-blue-400">
+                </div>
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-stone-400 uppercase block mb-1 tracking-widest">Cargo Institucional</label>
+                <select id="editCargo" class="w-full p-2 bg-stone-50 border border-stone-200 rounded text-sm font-bold outline-none focus:ring-1 focus:ring-blue-400" onchange="syncGroupFromCargo('editCargo', 'editGroupLabel'); updateCapacityIndicator()">
+                    <option value="Presidente/a">Presidente/a</option>
+                    <option value="Vicepresidente/a">Vicepresidente/a</option>
+                    <option value="Jefe/a de Gabinete">Jefe/a de Gabinete</option>
+                    <option value="Ministro/a">Ministro/a</option>
+                    <option value="Diputado/a">Diputado/a</option>
+                    <option value="Senador/a">Senador/a</option>
+                    <option value="Secretario/a Parlamentario/a (HCDN)">Sec. Parlamentario/a (HCDN)</option>
+                    <option value="Secretario/a Parlamentario/a (HSN)">Sec. Parlamentario/a (HSN)</option>
+                </select>
+                <div class="flex items-center justify-between mt-1">
+                    <p id="editGroupLabel" class="text-[9px] text-blue-500 font-bold uppercase"></p>
+                    <p id="capacityIndicator" class="text-[9px] font-bold uppercase"></p>
+                </div>
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-stone-400 uppercase block mb-1 tracking-widest">Firma Oficial</label>
+                <input type="text" id="editFirma" oninput="handleFirmaManual()" placeholder="Ej: Juan Pérez." class="w-full p-2 bg-blue-50/50 border border-blue-100 rounded text-sm italic font-serif text-blue-800 outline-none">
+                <p class="text-[9px] text-stone-400 mt-1 italic">Se genera automáticamente salvo que escribas aquí.</p>
+            </div>
+
+            <div id="historySection" class="pt-4 border-t border-stone-100">
+                <label class="text-[10px] font-black text-stone-400 uppercase block mb-3 tracking-widest">Historial del Registro</label>
+                <div id="individualHistory" class="space-y-2 max-h-40 overflow-y-auto pr-2 text-[11px]"></div>
+            </div>
+        </div>
+        <div class="p-6 border-t border-stone-100 flex gap-3 bg-stone-50">
+            <button onclick="triggerSaveRecord()" class="flex-grow bg-blue-600 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest hover:bg-blue-700 transition-all">Guardar Registro</button>
+            <button onclick="closeEditPanel()" class="px-6 bg-white border border-stone-200 text-stone-400 font-bold py-3 rounded-lg text-xs uppercase tracking-widest">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMACIÓN DE BORRADO -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/30 hidden z-[80] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 flex flex-col gap-4">
+            <div class="flex items-start gap-3">
+                <span class="text-2xl">🗑️</span>
+                <div>
+                    <h3 class="font-black text-stone-800 text-base">¿Eliminar del listado?</h3>
+                    <p id="deleteModalName" class="text-sm font-bold text-stone-500 mt-0.5"></p>
+                </div>
+            </div>
+            <p class="text-sm text-stone-600 leading-relaxed">Este registro será enviado a la papelera. No se elimina definitivamente: podés buscarlo en el directorio y hacer clic sobre él para editarlo y reactivarlo cuando quieras.</p>
+            <div class="flex gap-2 pt-1">
+                <button onclick="confirmDelete()" class="flex-grow bg-red-500 hover:bg-red-600 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest transition-all">Sí, eliminar</button>
+                <button onclick="cancelDelete()" class="px-6 bg-white border border-stone-200 text-stone-400 font-bold py-3 rounded-lg text-xs uppercase tracking-widest hover:bg-stone-50 transition-all">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL LÍMITE DE CARGO -->
+    <div id="capacityModal" class="fixed inset-0 bg-black/30 hidden z-[80] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 flex flex-col gap-4">
+            <div class="flex items-start gap-3">
+                <span class="text-2xl">⚠️</span>
+                <div>
+                    <h3 class="font-black text-stone-800 text-base">Cupo completo</h3>
+                    <p id="capacityModalCargo" class="text-sm font-bold text-amber-500 mt-0.5"></p>
+                </div>
+            </div>
+            <p id="capacityModalMsg" class="text-sm text-stone-600 leading-relaxed"></p>
+            <div id="capacityModalConflicts" class="space-y-2 max-h-40 overflow-y-auto"></div>
+            <div class="flex gap-2 pt-1">
+                <button onclick="closeCapacityModal()" class="flex-grow bg-stone-800 hover:bg-stone-900 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest transition-all">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL COINCIDENCIA EN PAPELERA -->
+    <style>
+        .tm-toggle { display:flex; background:#f1f5f9; border-radius:9999px; padding:2px; gap:0; }
+        .tm-toggle button { flex:1; padding:4px 14px; border-radius:9999px; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; border:none; cursor:pointer; transition:all .15s; color:#94a3b8; background:transparent; white-space:nowrap; }
+        .tm-toggle button.active-old { background:#1e293b; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,.15); }
+        .tm-toggle button.active-new { background:#2563eb; color:#fff; box-shadow:0 1px 4px rgba(37,99,235,.3); }
+        .tm-val { font-size:12px; line-height:1.35; }
+        .tm-val.old { color:#64748b; }
+        .tm-val.new { color:#1e40af; font-weight:700; }
+        .tm-val.firma-style { font-family:Georgia,serif; font-style:italic; }
+        .tm-row { border-bottom:1px solid #f1f5f9; padding:10px 0; display:flex; align-items:center; gap:12px; }
+        .tm-row:last-child { border-bottom:none; }
+    </style>
+    <div id="trashMatchModal" class="fixed inset-0 bg-black/30 hidden z-[90] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[92vh]">
+
+            <!-- Header -->
+            <div class="px-5 pt-5 pb-4 border-b border-stone-100 flex items-start gap-3 bg-stone-50 rounded-t-2xl">
+                <span class="text-xl mt-0.5">♻️</span>
+                <div class="flex-grow min-w-0">
+                    <h3 class="font-black text-stone-800 text-sm uppercase tracking-tight">Registro similar en Papelera</h3>
+                    <p id="trashMatchSubtitle" class="text-[10px] text-stone-400 font-bold uppercase mt-0.5 tracking-widest"></p>
+                </div>
+                <button onclick="closeTrashMatchModal()" class="text-xl text-stone-300 hover:text-stone-600 leading-none shrink-0">&times;</button>
+            </div>
+
+            <!-- Navegación entre múltiples coincidencias -->
+            <div id="trashMatchNav" class="hidden px-5 pt-3 pb-0 flex items-center justify-between gap-2">
+                <button onclick="trashMatchNavStep(-1)" id="trashNavPrev"
+                    class="text-[10px] font-black text-stone-400 hover:text-stone-700 px-3 py-1.5 rounded-full border border-stone-200 hover:border-stone-400 transition-all disabled:opacity-30 disabled:cursor-not-allowed">← Ant.</button>
+                <span id="trashNavLabel" class="text-[10px] font-black text-stone-400 uppercase tracking-widest"></span>
+                <button onclick="trashMatchNavStep(1)" id="trashNavNext"
+                    class="text-[10px] font-black text-stone-400 hover:text-stone-700 px-3 py-1.5 rounded-full border border-stone-200 hover:border-stone-400 transition-all disabled:opacity-30 disabled:cursor-not-allowed">Sig. →</button>
+            </div>
+
+            <!-- Última modificación (solo lectura) -->
+            <div class="px-5 pt-3 pb-0">
+                <p id="trashMatchLastMod" class="text-[10px] text-stone-400 italic bg-stone-50 rounded-lg px-3 py-2 border border-stone-100"></p>
+            </div>
+
+            <!-- Filas con toggle -->
+            <div class="px-5 pt-2 pb-1 flex-grow overflow-y-auto">
+                <!-- Cabecera de columnas -->
+                <div class="flex items-center gap-3 pb-2 mb-1 border-b border-stone-100">
+                    <div class="w-20 shrink-0"></div>
+                    <div class="w-28 shrink-0 text-center text-[9px] font-black text-stone-400 uppercase tracking-widest">Anterior</div>
+                    <div class="flex-grow"></div>
+                    <div class="w-28 shrink-0 text-center text-[9px] font-black text-blue-500 uppercase tracking-widest">Nuevo</div>
+                </div>
+                <div id="trashMatchRows"></div>
+            </div>
+
+            <p class="px-5 pb-2 text-[10px] text-stone-400 italic">Usá los toggles para elegir qué valor conservar campo por campo.</p>
+
+            <!-- Acciones -->
+            <div class="px-5 pb-5 pt-3 border-t border-stone-100 flex flex-col gap-2 bg-stone-50 rounded-b-2xl">
+                <button onclick="resolveTrashMatch('merge')"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest transition-all">
+                    Restaurar con esta selección
+                </button>
+                <button onclick="resolveTrashMatch('ignore')"
+                    class="w-full text-stone-400 hover:text-stone-600 font-bold py-2 rounded-lg text-xs uppercase tracking-widest transition-all">
+                    Ignorar — crear como registro nuevo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DUPLICADO ACTIVO -->
+    <div id="activeDupModal" class="fixed inset-0 bg-black/30 hidden z-[90] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col">
+            <!-- Header -->
+            <div class="px-5 pt-5 pb-4 border-b border-stone-100 flex items-start gap-3 bg-amber-50 rounded-t-2xl">
+                <span class="text-xl mt-0.5">⚠️</span>
+                <div class="flex-grow min-w-0">
+                    <h3 class="font-black text-stone-800 text-sm uppercase tracking-tight">Posible duplicado</h3>
+                    <p id="activeDupSubtitle" class="text-[10px] text-amber-600 font-bold uppercase mt-0.5 tracking-widest"></p>
+                </div>
+                <button onclick="resolveActiveDup('cancel')" class="text-xl text-stone-300 hover:text-stone-600 leading-none shrink-0">&times;</button>
+            </div>
+            <!-- Lista de duplicados encontrados -->
+            <div class="px-5 pt-4 pb-2 space-y-2 max-h-60 overflow-y-auto" id="activeDupList"></div>
+            <p class="px-5 pt-1 pb-3 text-[10px] text-stone-400 italic leading-relaxed">Estas personas ya están en el directorio activo. Podría tratarse de la misma persona con datos ligeramente distintos.</p>
+            <!-- Acciones globales -->
+            <div class="px-5 pb-5 pt-3 border-t border-stone-100 flex flex-col gap-2 bg-stone-50 rounded-b-2xl">
+                <button onclick="resolveActiveDup('continue')"
+                    class="w-full bg-stone-800 hover:bg-stone-900 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest transition-all">
+                    Ignorar y guardar igual
+                </button>
+                <button onclick="resolveActiveDup('cancel')"
+                    class="w-full text-stone-400 hover:text-stone-600 font-bold py-2 rounded-lg text-xs uppercase tracking-widest transition-all">
+                    Cancelar — volver al formulario
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST DE NOTIFICACIÓN -->
+    <div id="toast"></div>
+
+    <!-- ACCIONES FLOTANTES -->
+    <div id="actionFab" class="fixed bottom-6 right-6 flex flex-col items-end gap-3 opacity-0 translate-y-10 pointer-events-none transition-all">
+        <button onclick="copySignatures()" class="pointer-events-auto bg-stone-900 text-white px-8 py-4 rounded-full shadow-2xl flex items-center gap-3 hover:scale-105 transition-transform">
+            <span class="text-xs font-black uppercase tracking-widest">Copiar Firmas (<span id="fabCount">0</span>)</span>
+        </button>
+    </div>
+
+    <!-- FIREBASE SDK & LÓGICA DE NEGOCIO -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyBE--BeAKzWwTs-EjWJgQ9eN0lGX2i86dY",
+          authDomain: "firmas-75d1a.firebaseapp.com",
+          projectId: "firmas-75d1a",
+          storageBucket: "firmas-75d1a.firebasestorage.app",
+          messagingSenderId: "200832449122",
+          appId: "1:200832449122:web:8668713063f60e90c52227"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const CONFIG = {
+            grupos: {
+                'Presidente/a': 'ejecutivo',
+                'Vicepresidente/a': 'ejecutivo',
+                'Jefe/a de Gabinete': 'ejecutivo',
+                'Ministro/a': 'ejecutivo',
+                'Diputado/a': 'diputados',
+                'Senador/a': 'senadores',
+                'Secretario/a Parlamentario/a (HCDN)': 'diputados',
+                'Secretario/a Parlamentario/a (HSN)': 'senadores'
+            },
+            // null = sin límite
+            limitesCargo: {
+                'Presidente/a': 1,
+                'Vicepresidente/a': 1,
+                'Jefe/a de Gabinete': 1,
+                'Ministro/a': null,
+                'Diputado/a': 257,
+                'Senador/a': 72,
+                'Secretario/a Parlamentario/a (HCDN)': 1,
+                'Secretario/a Parlamentario/a (HSN)': 1
+            },
+            conectoresNombres: ['de la', 'de los', 'de las', 'del', 'de', 'la', 'los', 'las'],
+            camposLabel: {
+                apellido: 'Apellidos',
+                nombres: 'Nombres',
+                cargo: 'Cargo',
+                firma: 'Firma'
+            }
+        };
+
+        let records = [];
+        let globalEvents = [];   // todos los eventos del historial global
+        let selectedOrder = [];
+        let currentFilter = 'all';
+        let activeEditId = null;
+        let isFirmaDirty = false;
+        let currentVersionDate = 'live'; // 'live' o una fecha 'DD/MM/YYYY'
+
+        // ─── INICIALIZACIÓN ───────────────────────────────────────────
+
+        async function init() {
+            try {
+                await signInAnonymously(auth);
+
+                onSnapshot(collection(db, "autoridades"), (snapshot) => {
+                    records = snapshot.docs.map(d => ({ firebaseId: d.id, ...d.data() }));
+                    renderAll();
+                });
+
+                onSnapshot(collection(db, "historial_global"), (snapshot) => {
+                    globalEvents = snapshot.docs
+                        .map(d => ({ id: d.id, ...d.data() }))
+                        .sort((a, b) => b.timestamp - a.timestamp);
+                    updateVersionSelect();
+                });
+            } catch (error) {
+                console.error("Error de conexión:", error);
+            }
+        }
+
+        // ─── VERSIONES ────────────────────────────────────────────────
+
+        // Extrae la fecha (DD/MM/YYYY) de un timestamp
+        function tsToDate(ts) {
+            return new Date(ts).toLocaleDateString('es-AR');
+        }
+
+        // Lista de fechas únicas con eventos, de más reciente a más antigua
+        function getVersionDates() {
+            const seen = new Set();
+            const dates = [];
+            for (const ev of globalEvents) {
+                const d = tsToDate(ev.timestamp);
+                if (!seen.has(d)) { seen.add(d); dates.push(d); }
+            }
+            return dates; // ya vienen ordenadas desc porque globalEvents está desc
+        }
+
+        function buildVersionOpts(dates) {
+            const today = new Date().toLocaleDateString('es-AR');
+            if (dates.length === 0) return '<option value="live">Última versión (sin cambios aún)</option>';
+            const latest = dates[0];
+            let opts = `<option value="live">Última versión (${latest})</option>`;
+            for (const d of dates) {
+                const label = d === today ? `${d} — hoy` : d;
+                opts += `<option value="${d}">${label}</option>`;
+            }
+            return opts;
+        }
+
+        function updateVersionSelect() {
+            const dates = getVersionDates();
+            // Selector del tab Historial
+            const hSel = document.getElementById('historyVersionSelect');
+            if (hSel) {
+                const prev = hSel.value;
+                hSel.innerHTML = buildVersionOpts(dates);
+                if (prev !== 'live' && dates.includes(prev)) hSel.value = prev;
+            }
+            renderHistoryView();
+        }
+
+        // ─── VISTA HISTORIAL ──────────────────────────────────────────
+
+        window.renderHistoryView = function() {
+            const hSel = document.getElementById('historyVersionSelect');
+            if (!hSel) return;
+            const selectedDate = hSel.value;
+            const filterDate = selectedDate === 'live' ? getVersionDates()[0] : selectedDate;
+            const body = document.getElementById('historyBody');
+            if (!body) return;
+            const eventsOfDay = filterDate
+                ? globalEvents.filter(ev => tsToDate(ev.timestamp) === filterDate)
+                : [];
+            body.innerHTML = eventsOfDay.length === 0
+                ? '<p class="text-stone-300 italic text-sm text-center mt-10">No hay cambios registrados para esta fecha.</p>'
+                : eventsOfDay.map(ev => renderLogEvent(ev)).join('');
+        }
+
+        function renderLogEvent(ev) {
+            const hora = new Date(ev.timestamp).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+            const badgeClass = {
+                alta: 'badge-alta',
+                edicion: 'badge-edicion',
+                baja: 'badge-baja',
+                restauracion: 'badge-restauracion'
+            }[ev.tipo] || 'bg-stone-100 text-stone-500';
+
+            const badgeLabel = {
+                alta: 'Alta',
+                edicion: 'Edición',
+                baja: 'Baja',
+                restauracion: 'Restauración'
+            }[ev.tipo] || ev.tipo;
+
+            let detalle = '';
+
+            if (ev.tipo === 'alta') {
+                detalle = `
+                    <div class="mt-2 text-[11px] text-stone-600 space-y-0.5 bg-stone-50 rounded p-2">
+                        <div><span class="font-bold text-stone-400 uppercase">Apellidos:</span> ${ev.datos.apellido}</div>
+                        <div><span class="font-bold text-stone-400 uppercase">Nombres:</span> ${ev.datos.nombres}</div>
+                        <div><span class="font-bold text-stone-400 uppercase">Cargo:</span> ${ev.datos.cargo}</div>
+                        <div><span class="font-bold text-stone-400 uppercase">Firma:</span> <span class="italic font-serif text-blue-700">${ev.datos.firma}</span></div>
+                    </div>`;
+            } else if (ev.tipo === 'edicion' && ev.cambios && ev.cambios.length > 0) {
+                detalle = `
+                    <div class="mt-2 text-[11px] space-y-1">
+                        ${ev.cambios.map(c => `
+                            <div class="bg-stone-50 rounded p-2">
+                                <span class="font-black text-stone-500 uppercase text-[10px]">${CONFIG.camposLabel[c.campo] || c.campo}</span>
+                                <div class="flex gap-1 items-center mt-0.5">
+                                    <span class="line-through text-red-400">${c.anterior}</span>
+                                    <span class="text-stone-300">→</span>
+                                    <span class="text-green-600 font-bold">${c.nuevo}</span>
+                                </div>
+                            </div>`).join('')}
+                    </div>`;
+            } else if (ev.tipo === 'baja') {
+                detalle = `<div class="mt-1 text-[11px] text-stone-400 italic">Registro enviado a la papelera.</div>`;
+            } else if (ev.tipo === 'restauracion') {
+                detalle = `<div class="mt-1 text-[11px] text-stone-400 italic">Registro restaurado desde la papelera.</div>`;
+            }
+
+            return `
+                <div class="border border-stone-100 rounded-xl p-4 bg-white">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-[10px] font-black text-stone-300">${hora}</span>
+                        <span class="text-[10px] font-black px-2 py-0.5 rounded uppercase ${badgeClass}">${badgeLabel}</span>
+                        <span class="text-sm font-bold text-stone-700">${ev.nombre}</span>
+                    </div>
+                    ${detalle}
+                </div>`;
+        }
+
+        // ─── FIRMA INTELIGENTE ────────────────────────────────────────
+
+        window.generateAutoFirma = function(nombres, apellidos) {
+            if (!nombres.trim() && !apellidos.trim()) return "";
+            const parts = nombres.trim().split(/\s+/);
+            let resultNombres = [];
+            if (parts.length > 0) {
+                resultNombres.push(parts[0]);
+                for (let i = 1; i < parts.length; i++) {
+                    const current = parts[i];
+                    const prev = parts[i-1];
+                    const isConnector = CONFIG.conectoresNombres.includes(current.toLowerCase());
+                    if (isConnector) {
+                        resultNombres.push(current);
+                    } else {
+                        const prevWasConnector = CONFIG.conectoresNombres.includes(prev?.toLowerCase());
+                        if (prevWasConnector) resultNombres.push(current);
+                        else resultNombres.push(current[0].toUpperCase() + ".");
+                    }
+                }
+            }
+            const nombreFinal = resultNombres.join(' ');
+            return `${nombreFinal} ${apellidos.trim()}.`.trim();
+        }
+
+        window.handleNameInput = function() {
+            if (isFirmaDirty) return;
+            const n = document.getElementById('editFirstName').value;
+            const a = document.getElementById('editLastName').value;
+            document.getElementById('editFirma').value = generateAutoFirma(n, a);
+        }
+
+        window.handleFirmaManual = function() {
+            isFirmaDirty = true;
+        }
+
+        // ─── RENDERIZADO ──────────────────────────────────────────────
+
+        window.setFilter = function(filter) {
+            currentFilter = filter;
+            const colorClass = {
+                all: 'filter-all-active',
+                ejecutivo: 'filter-ejecutivo-active',
+                senadores: 'filter-senadores-active',
+                diputados: 'filter-diputados-active'
+            };
+            document.querySelectorAll('#groupFilters button').forEach(btn => {
+                btn.classList.remove('filter-btn-active', 'filter-all-active', 'filter-ejecutivo-active', 'filter-senadores-active', 'filter-diputados-active');
+                if (btn.dataset.filter === filter) {
+                    btn.classList.add('filter-btn-active', colorClass[filter]);
+                }
+            });
+            renderTable();
+        }
+
+        function renderAll() {
+            renderTable();
+            updateFab();
+        }
+
+        function hasLastNameCollision(record) {
+            return records.some(r =>
+                r.active &&
+                r.firebaseId !== record.firebaseId &&
+                r.apellido.toLowerCase() === record.apellido.toLowerCase() &&
+                r.grupo === record.grupo
+            );
+        }
+
+        function getDisplayName(r) {
+            let name = `${r.apellido}, ${r.nombres}`;
+            if (hasLastNameCollision(r)) {
+                const initials = r.nombres.split(/\s+/).map(n => {
+                    if (CONFIG.conectoresNombres.includes(n.toLowerCase())) return "";
+                    return n[0].toUpperCase() + ".";
+                }).join('');
+                name += ` (${initials})`;
+            }
+            return name;
+        }
+
+        window.renderTable = function() {
+            const body = document.getElementById('masterTableBody');
+            const search = (document.getElementById('masterSearch')?.value || "").toLowerCase();
+            const hasSearch = search.length > 0;
+
+            const sorted = [...records].sort((a, b) =>
+                `${a.apellido} ${a.nombres}`.toLowerCase().localeCompare(`${b.apellido} ${b.nombres}`.toLowerCase())
+            );
+
+            const active = sorted.filter(r =>
+                r.active &&
+                (currentFilter === 'all' || r.grupo === currentFilter) &&
+                (r.apellido.toLowerCase().includes(search) || r.firma.toLowerCase().includes(search))
+            );
+
+            const deleted = hasSearch ? sorted.filter(r =>
+                !r.active &&
+                (r.apellido.toLowerCase().includes(search) || r.firma.toLowerCase().includes(search))
+            ) : [];
+
+            const activeRows = active.map(r => {
+                const isSelected = selectedOrder.includes(r.firebaseId);
+                return `
+                    <tr class="row-${r.grupo} hover:bg-stone-50 cursor-pointer transition-all ${isSelected ? 'selected-row' : ''}" onclick="openEditPanel('${r.firebaseId}', event)">
+                        <td class="px-4 py-3" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="w-4 h-4 rounded border-stone-300" ${isSelected ? 'checked' : ''} onchange="toggleSelect('${r.firebaseId}')">
+                        </td>
+                        <td class="px-4 py-3 font-bold text-stone-700">${getDisplayName(r)}</td>
+                        <td class="px-4 py-3 italic font-serif text-blue-700 select-all">${r.firma}</td>
+                        <td class="hidden md:table-cell px-4 py-3 text-stone-400 font-medium text-sm">${r.cargo}</td>
+                        <td class="px-4 py-3 text-right" onclick="event.stopPropagation()">
+                            <button onclick="deleteRecord('${r.firebaseId}')" class="text-stone-200 hover:text-red-500 transition-colors p-2">🗑️</button>
+                        </td>
+                    </tr>`;
+            });
+
+            const deletedRows = deleted.map(r => `
+                    <tr class="opacity-40 cursor-pointer hover:opacity-60 transition-opacity" onclick="openEditDeletedPanel('${r.firebaseId}', event)">
+                        <td class="px-4 py-3">
+                            <input type="checkbox" class="w-4 h-4 rounded border-stone-300" disabled>
+                        </td>
+                        <td class="px-4 py-3 font-bold text-stone-500 line-through">${r.apellido}, ${r.nombres}</td>
+                        <td class="px-4 py-3 italic font-serif text-stone-400">${r.firma}</td>
+                        <td class="hidden md:table-cell px-4 py-3 text-stone-300 font-medium text-sm">${r.cargo}</td>
+                        <td class="px-4 py-3 text-right">
+                            <span class="text-[9px] font-black text-stone-300 uppercase tracking-widest">Eliminado</span>
+                        </td>
+                    </tr>`);
+
+            const separator = deleted.length > 0 ? `
+                    <tr><td colspan="4" class="px-4 py-2 bg-stone-50 border-y border-stone-100">
+                        <span class="text-[9px] font-black text-stone-300 uppercase tracking-widest">En papelera — clic para editar y reactivar</span>
+                    </td></tr>` : '';
+
+            const emptyRow = active.length === 0 && deleted.length === 0
+                ? '<tr><td colspan="4" class="p-10 text-center text-stone-300 italic">No hay registros</td></tr>'
+                : '';
+
+            body.innerHTML = activeRows.join('') + separator + deletedRows.join('') + emptyRow;
+
+            document.getElementById('counterLabel').innerText =
+                `${active.length} Visibles | ${records.filter(x => x.active).length} Totales`;
+        }
+
+        // ─── ACCIONES FIREBASE ────────────────────────────────────────
+
+        window.triggerSaveRecord = async function() {
+            const lastName  = document.getElementById('editLastName').value.trim();
+            const firstName = document.getElementById('editFirstName').value.trim();
+            const firma     = document.getElementById('editFirma').value.trim();
+            const cargo     = document.getElementById('editCargo').value;
+
+            if (!lastName || !firstName) return;
+
+            // Verificar cupo: siempre en alta; en edición solo si cambia el cargo; en reactivación siempre
+            const currentRecord = activeEditId ? records.find(x => x.firebaseId === activeEditId) : null;
+            const currentCargo = currentRecord?.cargo || null;
+            const wasDeleted = currentRecord ? !currentRecord.active : false;
+            const isCargoChange = currentCargo !== cargo;
+            if (activeEditId === null || isCargoChange || wasDeleted) {
+                const capacityIssue = checkCapacity(cargo, wasDeleted ? null : activeEditId);
+                if (capacityIssue) {
+                    showCapacityModal(cargo, capacityIssue.ocupantes, activeEditId);
+                    return;
+                }
+            }
+
+            const firmaFinal = firma || generateAutoFirma(firstName, lastName);
+            const data = {
+                apellido: lastName,
+                nombres: firstName,
+                firma: firmaFinal,
+                cargo: cargo,
+                grupo: CONFIG.grupos[cargo]
+            };
+
+            // Verificar duplicados activos (crear y editar)
+            const activeDups = findActiveDuplicates(lastName, firstName, activeEditId);
+            if (activeDups.length > 0) {
+                showActiveDupModal(activeDups, () => proceedSave(data, activeEditId));
+                return;
+            }
+
+            await proceedSave(data, activeEditId);
+        }
+
+        async function proceedSave(data, editId) {
+            const now = new Date().toLocaleString('es-AR', { hour12: false }).slice(0, 16);
+
+            if (editId === null) {
+                // ALTA: buscar coincidencias en papelera antes de crear
+                const matches = findTrashMatches(data.apellido, data.nombres);
+                if (matches.length > 0) {
+                    openTrashMatchModal(matches, data);
+                    return;
+                }
+                await performCreateRecord(data, now);
+            } else {
+                const r = records.find(x => x.firebaseId === editId);
+                const wasDeleted = !r.active;
+                const camposAComparar = ['apellido', 'nombres', 'cargo', 'firma'];
+                const valoresNuevos = { apellido: data.apellido, nombres: data.nombres, cargo: data.cargo, firma: data.firma };
+                const cambios = camposAComparar
+                    .filter(campo => (r[campo] || '') !== (valoresNuevos[campo] || ''))
+                    .map(campo => ({ campo, anterior: r[campo] || '', nuevo: valoresNuevos[campo] || '' }));
+
+                if (wasDeleted) {
+                    // REACTIVACIÓN: restaurar + registrar cambios si los hay
+                    const updatedHistory = [...(r.history || []),
+                        { date: now, action: "Reactivado desde búsqueda.", tipo: 'restauracion' }
+                    ];
+                    await updateDoc(doc(db, "autoridades", editId), { ...data, active: true, lastUpdate: now, history: updatedHistory });
+                    await registrarEvento({ tipo: 'restauracion', nombre: `${data.apellido}, ${data.nombres}` });
+                    if (cambios.length > 0) {
+                        await registrarEvento({ tipo: 'edicion', nombre: `${data.apellido}, ${data.nombres}`, cambios });
+                    }
+                } else {
+                    // EDICIÓN normal
+                    const updatedHistory = [...(r.history || []), { date: now, action: "Modificación de datos.", tipo: 'edicion' }];
+                    await updateDoc(doc(db, "autoridades", editId), { ...data, active: true, lastUpdate: now, history: updatedHistory });
+                    if (cambios.length > 0) {
+                        await registrarEvento({ tipo: 'edicion', nombre: `${data.apellido}, ${data.nombres}`, cambios });
+                        showToast(`✓ ${data.apellido} actualizado`);
+
+                    }
+                }
+                closeEditPanel();
+            }
+        }
+
+        // ─── DUPLICADOS EN LISTADO ACTIVO ────────────────────────────
+
+        // Devuelve registros activos que coincidan (apellido exacto + cualquier nombre en común), excluyendo el propio ID
+        function findActiveDuplicates(lastName, firstName, excludeId = null) {
+            const normLast = normalizeStr(lastName);
+            const newTokens = new Set(
+                normalizeStr(firstName).split(/\s+/).filter(t => t.length > 1 && !CONFIG.conectoresNombres.includes(t))
+            );
+            return records.filter(r => {
+                if (!r.active) return false;
+                if (r.firebaseId === excludeId) return false;
+                if (normalizeStr(r.apellido) !== normLast) return false;
+                const rTokens = normalizeStr(r.nombres).split(/\s+/).filter(t => t.length > 1 && !CONFIG.conectoresNombres.includes(t));
+                return rTokens.some(t => newTokens.has(t));
+            });
+        }
+
+        let pendingActiveDup = null; // { continueFn }
+
+        function showActiveDupModal(duplicates, continueFn) {
+            const grupoLabel = { ejecutivo: 'Ejecutivo', diputados: 'Diputados', senadores: 'Senado' };
+            const grupoColor = { ejecutivo: 'text-slate-500', diputados: 'text-sky-500', senadores: 'text-rose-400' };
+
+            document.getElementById('activeDupSubtitle').innerText =
+                duplicates.length === 1 ? '1 registro coincidente en el directorio' : `${duplicates.length} registros coincidentes en el directorio`;
+
+            document.getElementById('activeDupList').innerHTML = duplicates.map(r => {
+                const lastMod = r.lastUpdate || [...(r.history || [])].pop()?.date || '—';
+                const gLabel = grupoLabel[r.grupo] || r.grupo;
+                const gColor = grupoColor[r.grupo] || 'text-stone-400';
+                return `
+                <div class="bg-white border border-stone-200 rounded-xl px-3 py-2.5">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0 flex-grow">
+                            <p class="font-black text-stone-700 text-sm truncate">${r.apellido}, ${r.nombres}</p>
+                            <p class="text-xs text-stone-400 font-medium">${r.cargo}</p>
+                            <p class="italic font-serif text-blue-600 text-xs mt-0.5 truncate">${r.firma}</p>
+                        </div>
+                        <div class="flex flex-col items-end gap-1.5 shrink-0">
+                            <span class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-stone-100 ${gColor}">${gLabel}</span>
+                            <button onclick="resolveActiveDup('edit','${r.firebaseId}')"
+                                class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border border-blue-200 text-blue-500 hover:bg-blue-50 transition-all whitespace-nowrap">
+                                Editar este
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-[9px] text-stone-300 mt-1.5 font-medium">Últ. mod.: ${lastMod}</p>
+                </div>`;
+            }).join('');
+
+            pendingActiveDup = { continueFn };
+            document.getElementById('activeDupModal').classList.remove('hidden');
+        }
+
+        window.resolveActiveDup = function(choice, firebaseId) {
+            document.getElementById('activeDupModal').classList.add('hidden');
+            if (!pendingActiveDup) return;
+            const { continueFn } = pendingActiveDup;
+            pendingActiveDup = null;
+            if (choice === 'continue') {
+                continueFn();
+            } else if (choice === 'edit') {
+                // Cerrar el panel actual y abrir el del duplicado
+                closeEditPanel();
+                openEditPanel(firebaseId, null);
+            }
+            // 'cancel' → no hace nada, el panel sigue abierto
+        }
+
+
+
+        function normalizeStr(s) {
+            return (s || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9\s]/g, '')
+                .trim();
+        }
+
+        // Devuelve TODOS los registros inactivos que coincidan (apellido exacto + primer nombre)
+        function findTrashMatches(lastName, firstName) {
+            const normLast = normalizeStr(lastName);
+            const firstToken = normalizeStr(firstName).split(/\s+/)[0];
+
+            return records
+                .filter(r => !r.active)
+                .filter(r => {
+                    if (normalizeStr(r.apellido) !== normLast) return false;
+                    const rFirstToken = normalizeStr(r.nombres).split(/\s+/)[0];
+                    return rFirstToken === firstToken;
+                })
+                .sort((a, b) => {
+                    // más reciente primero: comparar lastUpdate o último evento del history
+                    const dateA = a.lastUpdate || [...(a.history || [])].pop()?.date || '';
+                    const dateB = b.lastUpdate || [...(b.history || [])].pop()?.date || '';
+                    return dateB.localeCompare(dateA);
+                });
+        }
+
+        // ── Estado del modal de coincidencias ──
+        let pendingTrashMatch = null;
+        // { matches: [...], currentIdx: 0, newData: {...}, fieldSelections: {apellido:'old'|'new', ...} }
+
+        const CAMPOS_COMPARABLES = [
+            { key: 'apellido', label: 'Apellidos', cls: 'font-bold text-stone-700' },
+            { key: 'nombres',  label: 'Nombres',   cls: 'font-bold text-stone-700' },
+            { key: 'cargo',    label: 'Cargo',      cls: 'text-stone-500' },
+            { key: 'firma',    label: 'Firma',      cls: 'italic font-serif text-blue-700' }
+        ];
+
+        function openTrashMatchModal(matches, newData) {
+            const defaultSel = {};
+            CAMPOS_COMPARABLES.forEach(c => { defaultSel[c.key] = 'new'; });
+
+            pendingTrashMatch = {
+                matches,
+                currentIdx: 0,
+                newData,
+                fieldSelections: defaultSel
+            };
+
+            renderTrashMatchModal();
+            document.getElementById('trashMatchModal').classList.remove('hidden');
+        }
+
+        function renderTrashMatchModal() {
+            const { matches, currentIdx, newData, fieldSelections } = pendingTrashMatch;
+            const tr = matches[currentIdx];
+            const count = matches.length;
+
+            // Subtítulo
+            document.getElementById('trashMatchSubtitle').innerText =
+                count === 1 ? '1 posible coincidencia encontrada' : `${count} posibles coincidencias encontradas`;
+
+            // Navegación
+            const nav = document.getElementById('trashMatchNav');
+            if (count > 1) {
+                nav.classList.remove('hidden');
+                document.getElementById('trashNavLabel').innerText = `${currentIdx + 1} de ${count}`;
+                document.getElementById('trashNavPrev').disabled = currentIdx === 0;
+                document.getElementById('trashNavNext').disabled = currentIdx === count - 1;
+            } else {
+                nav.classList.add('hidden');
+            }
+
+            // Última modificación
+            const lastEntry = [...(tr.history || [])].reverse()[0];
+            const lastDate = tr.lastUpdate || lastEntry?.date || '—';
+            const lastAction = lastEntry?.action || '';
+            document.getElementById('trashMatchLastMod').innerText =
+                `📅 Papelera · Últ. acción: ${lastAction ? lastAction + ' ' : ''}${lastDate}`;
+
+            // Filas con toggle
+            const rowsEl = document.getElementById('trashMatchRows');
+            rowsEl.innerHTML = CAMPOS_COMPARABLES.map(campo => {
+                const oldVal = tr[campo.key] || '—';
+                const newVal = newData[campo.key] || '—';
+                const sel = fieldSelections[campo.key];
+                const isSame = normalizeStr(oldVal) === normalizeStr(newVal);
+                const firmaClass = campo.key === 'firma' ? ' firma-style' : '';
+
+                return `
+                <div class="tm-row">
+                    <div class="w-20 shrink-0">
+                        <span class="text-[9px] font-black text-stone-400 uppercase tracking-widest">${campo.label}</span>
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <div class="tm-val ${sel === 'old' ? 'old' : 'new'}${firmaClass} truncate" title="${sel === 'old' ? oldVal : newVal}">
+                            ${sel === 'old' ? oldVal : newVal}
+                        </div>
+                        ${!isSame ? `<div class="text-[9px] text-stone-300 mt-0.5 truncate line-through" title="${sel === 'old' ? newVal : oldVal}">${sel === 'old' ? newVal : oldVal}</div>` : `<div class="text-[9px] text-stone-300 mt-0.5 italic">Igual en ambos</div>`}
+                    </div>
+                    ${isSame ? `
+                    <div class="shrink-0">
+                        <span class="text-[9px] text-stone-300 font-bold uppercase tracking-widest px-2">≡</span>
+                    </div>` : `
+                    <div class="tm-toggle shrink-0">
+                        <button onclick="selectTrashField('${campo.key}','old')" class="${sel === 'old' ? 'active-old' : ''}">Ant.</button>
+                        <button onclick="selectTrashField('${campo.key}','new')" class="${sel === 'new' ? 'active-new' : ''}">Nuevo</button>
+                    </div>`}
+                </div>`;
+            }).join('');
+        }
+
+        window.selectTrashField = function(campo, side) {
+            if (!pendingTrashMatch) return;
+            pendingTrashMatch.fieldSelections[campo] = side;
+            renderTrashMatchModal();
+        }
+
+        window.trashMatchNavStep = function(dir) {
+            if (!pendingTrashMatch) return;
+            const next = pendingTrashMatch.currentIdx + dir;
+            if (next < 0 || next >= pendingTrashMatch.matches.length) return;
+            pendingTrashMatch.currentIdx = next;
+            // Resetear selecciones al cambiar de coincidencia
+            CAMPOS_COMPARABLES.forEach(c => { pendingTrashMatch.fieldSelections[c.key] = 'new'; });
+            renderTrashMatchModal();
+        }
+
+        window.closeTrashMatchModal = function() {
+            document.getElementById('trashMatchModal').classList.add('hidden');
+            pendingTrashMatch = null;
+        }
+
+        window.resolveTrashMatch = async function(choice) {
+            document.getElementById('trashMatchModal').classList.add('hidden');
+            if (!pendingTrashMatch) return;
+            const { matches, currentIdx, newData, fieldSelections } = pendingTrashMatch;
+            const trashRecord = matches[currentIdx];
+            pendingTrashMatch = null;
+            const now = new Date().toLocaleString('es-AR', { hour12: false }).slice(0, 16);
+
+            if (choice === 'ignore') {
+                await performCreateRecord(newData, now);
+                return;
+            }
+
+            // Construir datos finales campo por campo según selección
+            const dataToUse = {};
+            CAMPOS_COMPARABLES.forEach(c => {
+                dataToUse[c.key] = fieldSelections[c.key] === 'new' ? newData[c.key] : (trashRecord[c.key] || newData[c.key]);
+            });
+            dataToUse.grupo = CONFIG.grupos[dataToUse.cargo] || trashRecord.grupo;
+
+            const updatedHistory = [...(trashRecord.history || []),
+                { date: now, action: 'Restaurado con selección de campos.', tipo: 'restauracion' }
+            ];
+
+            await updateDoc(doc(db, "autoridades", trashRecord.firebaseId), {
+                ...dataToUse,
+                active: true,
+                lastUpdate: now,
+                history: updatedHistory
+            });
+
+            await registrarEvento({
+                tipo: 'restauracion',
+                nombre: `${dataToUse.apellido}, ${dataToUse.nombres}`
+            });
+            showToast(`✓ ${dataToUse.apellido} restaurado al directorio`);
+            closeEditPanel();
+        }
+
+        async function performCreateRecord(data, now) {
+            await addDoc(collection(db, "autoridades"), {
+                ...data,
+                active: true,
+                lastUpdate: now,
+                history: [{ date: now, action: "Alta de registro.", tipo: 'alta' }]
+            });
+            await registrarEvento({
+                tipo: 'alta',
+                nombre: `${data.apellido}, ${data.nombres}`,
+                datos: { apellido: data.apellido, nombres: data.nombres, cargo: data.cargo, firma: data.firma }
+            });
+            showToast(`✓ ${data.apellido} agregado al directorio`);
+            closeEditPanel();
+        }
+
+
+        // ─── CONFIRMACIÓN DE BORRADO ──────────────────────────────────
+
+
+        let pendingDeleteId = null;
+
+        window.deleteRecord = function(id) {
+            const r = records.find(x => x.firebaseId === id);
+            pendingDeleteId = id;
+            document.getElementById('deleteModalName').innerText = `${r.apellido}, ${r.nombres} — ${r.cargo}`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        window.confirmDelete = async function() {
+            if (!pendingDeleteId) return;
+            const id = pendingDeleteId;
+            pendingDeleteId = null;
+            document.getElementById('deleteModal').classList.add('hidden');
+            const r = records.find(x => x.firebaseId === id);
+            const now = new Date().toLocaleString('es-AR').slice(0, 16);
+            const updatedHistory = [...(r.history || []), { date: now, action: "Enviado a papelera.", tipo: 'baja' }];
+            await updateDoc(doc(db, "autoridades", id), { active: false, history: updatedHistory });
+            selectedOrder = selectedOrder.filter(sid => sid !== id);
+            await registrarEvento({ tipo: 'baja', nombre: `${r.apellido}, ${r.nombres}` });
+            showToast(`${r.apellido} eliminado del directorio`);
+        }
+
+        window.cancelDelete = function() {
+            pendingDeleteId = null;
+            document.getElementById('deleteModal').classList.add('hidden');
+        }
+
+        // ─── VALIDACIÓN DE CUPO ───────────────────────────────────────
+
+        function countActiveByCargo(cargo, excludeId = null) {
+            return records.filter(r =>
+                r.active &&
+                r.cargo === cargo &&
+                r.firebaseId !== excludeId
+            ).length;
+        }
+
+        // Retorna null si hay cupo, o un objeto { limite, actuales, ocupantes } si no hay
+        function checkCapacity(cargo, excludeId = null) {
+            const limite = CONFIG.limitesCargo[cargo];
+            if (limite === null || limite === undefined) return null; // sin límite
+            const ocupantes = records.filter(r => r.active && r.cargo === cargo && r.firebaseId !== excludeId);
+            if (ocupantes.length < limite) return null;
+            return { limite, actuales: ocupantes.length, ocupantes };
+        }
+
+        window.closeCapacityModal = function() {
+            document.getElementById('capacityModal').classList.add('hidden');
+        }
+
+        function showCapacityModal(cargo, ocupantes, excludeId = null) {
+            const limite = CONFIG.limitesCargo[cargo];
+            document.getElementById('capacityModalCargo').innerText = cargo;
+            document.getElementById('capacityModalMsg').innerHTML =
+                `El cargo <strong>${cargo}</strong> ya tiene ${ocupantes.length} de ${limite} cupo${limite > 1 ? 's' : ''} ocupado${limite > 1 ? 's' : ''}. Para agregar un nuevo registro con este cargo, primero eliminá uno de los actuales.`;
+
+            const conflictsEl = document.getElementById('capacityModalConflicts');
+            conflictsEl.innerHTML = ocupantes.map(r => {
+                const lastMod = r.lastUpdate || [...(r.history || [])].pop()?.date || '—';
+                return `
+                <div class="flex items-center justify-between bg-stone-50 rounded-lg px-3 py-2 border border-stone-100 gap-2">
+                    <div class="min-w-0">
+                        <span class="text-sm font-bold text-stone-700 block truncate">${r.apellido}, ${r.nombres}</span>
+                        <span class="text-[9px] text-stone-400 font-medium uppercase tracking-wider">Últ. mod.: ${lastMod}</span>
+                    </div>
+                    <button onclick="deleteFromCapacityModal('${r.firebaseId}')"
+                        class="shrink-0 text-[10px] font-black text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2 py-1 rounded uppercase transition-all">
+                        Eliminar
+                    </button>
+                </div>`;
+            }).join('');
+
+            document.getElementById('capacityModal').classList.remove('hidden');
+        }
+
+        window.deleteFromCapacityModal = async function(id) {
+            const r = records.find(x => x.firebaseId === id);
+            const now = new Date().toLocaleString('es-AR').slice(0, 16);
+            const updatedHistory = [...(r.history || []), { date: now, action: "Enviado a papelera.", tipo: 'baja' }];
+            await updateDoc(doc(db, "autoridades", id), { active: false, history: updatedHistory });
+            selectedOrder = selectedOrder.filter(sid => sid !== id);
+            await registrarEvento({ tipo: 'baja', nombre: `${r.apellido}, ${r.nombres}` });
+            showToast(`${r.apellido} eliminado del directorio`);
+            document.getElementById('capacityModal').classList.add('hidden');
+        }
+
+
+        window.restoreRecord = async function(id) {
+            const r = records.find(x => x.firebaseId === id);
+            const now = new Date().toLocaleString('es-AR').slice(0, 16);
+            const updatedHistory = [...(r.history || []), { date: now, action: "Restaurado desde papelera.", tipo: 'restauracion' }];
+            await updateDoc(doc(db, "autoridades", id), { active: true, history: updatedHistory });
+            await registrarEvento({
+                tipo: 'restauracion',
+                nombre: `${r.apellido}, ${r.nombres}`
+            });
+            showToast(`✓ ${r.apellido} restaurado`);
+        }
+
+        async function registrarEvento(payload) {
+            await addDoc(collection(db, "historial_global"), {
+                ...payload,
+                timestamp: Date.now()
+            });
+        }
+
+        // ─── INTERFAZ UI ──────────────────────────────────────────────
+
+        window.openCreatePanel = function() {
+            activeEditId = null;
+            isFirmaDirty = false;
+            document.getElementById('panelTitle').innerText = "Nuevo Registro";
+            document.getElementById('editIdLabel').innerText = "Alta de Autoridad";
+            document.getElementById('editLastName').value = "";
+            document.getElementById('editFirstName').value = "";
+            document.getElementById('editFirma').value = "";
+            document.getElementById('editCargo').value = "Ministro/a";
+            document.getElementById('historySection').classList.add('hidden');
+            syncGroupFromCargo('editCargo', 'editGroupLabel');
+            updateCapacityIndicator();
+            document.getElementById('editPanelOverlay').classList.remove('hidden');
+            document.getElementById('editPanel').classList.replace('panel-hidden', 'panel-visible');
+        }
+
+        window.openEditPanel = function(id, e) {
+            if (e && (e.target.type === 'checkbox' || e.target.tagName === 'BUTTON')) return;
+            activeEditId = id;
+            isFirmaDirty = true;
+            const r = records.find(x => x.firebaseId === id);
+
+            document.getElementById('panelTitle').innerText = "Editar Autoridad";
+            document.getElementById('editIdLabel').innerText = `ID: ${id}`;
+            document.getElementById('editLastName').value = r.apellido;
+            document.getElementById('editFirstName').value = r.nombres;
+            document.getElementById('editFirma').value = r.firma;
+            document.getElementById('editCargo').value = r.cargo;
+            document.getElementById('historySection').classList.remove('hidden');
+            syncGroupFromCargo('editCargo', 'editGroupLabel');
+            updateCapacityIndicator();
+
+            // Historial individual enriquecido
+            const histBody = document.getElementById('individualHistory');
+            histBody.innerHTML = (r.history || []).slice().reverse().map(h => {
+                const tipo = h.tipo || '';
+                const color = { alta: 'text-green-600', edicion: 'text-blue-500', baja: 'text-red-400', restauracion: 'text-amber-500' }[tipo] || 'text-stone-400';
+                return `
+                    <div class="flex gap-2 mb-2 pb-2 border-b border-stone-50 last:border-0">
+                        <span class="text-stone-300 font-bold whitespace-nowrap">${h.date}</span>
+                        <span class="${color} font-bold">${h.action}</span>
+                    </div>`;
+            }).join('');
+
+            document.getElementById('editPanelOverlay').classList.remove('hidden');
+            document.getElementById('editPanel').classList.replace('panel-hidden', 'panel-visible');
+        }
+
+        window.closeEditPanel = function() {
+            document.getElementById('editPanelOverlay').classList.add('hidden');
+            document.getElementById('editPanel').classList.replace('panel-visible', 'panel-hidden');
+            activeEditId = null;
+        }
+
+        window.toggleSelect = function(id) {
+            const index = selectedOrder.indexOf(id);
+            if (index > -1) selectedOrder.splice(index, 1);
+            else selectedOrder.push(id);
+            renderTable();
+            updateFab();
+        }
+
+        window.toggleSelectAll = function(master) {
+            const search = document.getElementById('masterSearch').value.toLowerCase();
+            const visible = records.filter(r =>
+                r.active && (currentFilter === 'all' || r.grupo === currentFilter) &&
+                (r.apellido.toLowerCase().includes(search) || r.firma.toLowerCase().includes(search))
+            );
+            if (master.checked) visible.forEach(r => { if (!selectedOrder.includes(r.firebaseId)) selectedOrder.push(r.firebaseId); });
+            else selectedOrder = selectedOrder.filter(id => !visible.map(v => v.firebaseId).includes(id));
+            renderTable();
+            updateFab();
+        }
+
+        window.updateFab = function() {
+            const fab = document.getElementById('actionFab');
+            document.getElementById('fabCount').innerText = selectedOrder.length;
+            if (selectedOrder.length > 0) fab.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none');
+            else fab.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none');
+        }
+
+        window.copySignatures = function() {
+            const orderedSignatures = selectedOrder.map(id => records.find(x => x.firebaseId === id)?.firma).filter(Boolean);
+            if (orderedSignatures.length === 0) return;
+            const text = orderedSignatures.join(' — ');
+            const dummy = document.createElement("textarea");
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand("copy");
+            document.body.removeChild(dummy);
+        }
+
+        window.switchTab = function(tab) {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('tab-active'));
+            document.getElementById(`view-${tab}`).classList.remove('hidden');
+            const tabBtn = document.getElementById(`tab-${tab}`);
+            if (tabBtn) tabBtn.classList.add('tab-active');
+            if (tab === 'history') renderHistoryView();
+        }
+
+        window.openEditDeletedPanel = function(id, e) {
+            if (e && (e.target.type === 'checkbox' || e.target.tagName === 'BUTTON')) return;
+            activeEditId = id;
+            isFirmaDirty = true;
+            const r = records.find(x => x.firebaseId === id);
+            document.getElementById('panelTitle').innerText = "Reactivar Autoridad";
+            document.getElementById('editIdLabel').innerText = `Eliminado — guardar para reactivar`;
+            document.getElementById('editLastName').value = r.apellido;
+            document.getElementById('editFirstName').value = r.nombres;
+            document.getElementById('editFirma').value = r.firma;
+            document.getElementById('editCargo').value = r.cargo;
+            document.getElementById('historySection').classList.remove('hidden');
+            syncGroupFromCargo('editCargo', 'editGroupLabel');
+            updateCapacityIndicator();
+            const histBody = document.getElementById('individualHistory');
+            histBody.innerHTML = (r.history || []).slice().reverse().map(h => {
+                const tipo = h.tipo || '';
+                const color = { alta: 'text-green-600', edicion: 'text-blue-500', baja: 'text-red-400', restauracion: 'text-amber-500' }[tipo] || 'text-stone-400';
+                return `<div class="flex gap-2 mb-2 pb-2 border-b border-stone-50 last:border-0">
+                    <span class="text-stone-300 font-bold whitespace-nowrap">${h.date}</span>
+                    <span class="${color} font-bold">${h.action}</span>
+                </div>`;
+            }).join('');
+            document.getElementById('editPanelOverlay').classList.remove('hidden');
+            document.getElementById('editPanel').classList.replace('panel-hidden', 'panel-visible');
+        }
+
+        window.syncGroupFromCargo = function(selectId, labelId) {
+            const cargo = document.getElementById(selectId).value;
+            document.getElementById(labelId).innerText = `Grupo: ${CONFIG.grupos[cargo].toUpperCase()}`;
+        }
+
+        window.updateCapacityIndicator = function() {
+            const cargo = document.getElementById('editCargo').value;
+            const el = document.getElementById('capacityIndicator');
+            const limite = CONFIG.limitesCargo[cargo];
+            if (!el) return;
+            if (limite === null || limite === undefined) {
+                el.innerText = '';
+                return;
+            }
+            const actuales = countActiveByCargo(cargo, activeEditId);
+            const isFull = actuales >= limite;
+            el.innerText = `${actuales} / ${limite}`;
+            el.className = `text-[9px] font-bold uppercase ${isFull ? 'text-red-500' : 'text-stone-400'}`;
+        }
+
+        document.getElementById('masterSearch').addEventListener('input', renderTable);
+
+        // ─── TOAST ────────────────────────────────────────────────────
+        let toastTimer = null;
+        function showToast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+        }
+
+        init();
+    </script>
+</body>
+</html>        #toast.show {
             opacity: 1; transform: translateX(-50%) translateY(0);
         }
     </style>
