@@ -42,6 +42,10 @@
         #toast.show {
             opacity: 1; transform: translateX(-50%) translateY(0);
         }
+        /* Estado de solo lectura */
+        body.readonly-mode tr.row-diputados,
+        body.readonly-mode tr.row-senadores,
+        body.readonly-mode tr.row-ejecutivo { cursor: default; }
     </style>
 </head>
 <body class="bg-stone-50 text-stone-900 font-sans antialiased overflow-x-hidden">
@@ -55,10 +59,15 @@
                 <span class="text-lg font-normal tracking-tighter text-stone-800 group-hover:text-blue-600 transition-colors leading-none mb-0.5">FIRMAS</span>
                 <span class="text-[9px] text-stone-300 font-normal leading-none mb-0.5">v3.1</span>
             </button>
-            <nav class="flex gap-6 text-xs font-bold text-stone-400">
+            <nav class="flex gap-4 text-xs font-bold text-stone-400 items-center">
                 <button onclick="switchTab('history')" id="tab-history" class="py-2 uppercase flex items-center gap-1.5">
                     <span class="hidden sm:inline">Historial</span>
                     <span class="sm:hidden text-base leading-none" title="Historial">🕐</span>
+                </button>
+                <button onclick="openAuthModal()" id="authBtn"
+                    class="flex items-center gap-1.5 py-1.5 px-3 rounded-lg border border-stone-200 hover:border-stone-300 hover:text-stone-600 transition-all text-[10px] uppercase tracking-widest">
+                    <span id="authBtnIcon">🔒</span>
+                    <span id="authBtnLabel" class="hidden sm:inline">Administrar</span>
                 </button>
             </nav>
         </div>
@@ -75,7 +84,7 @@
                                    class="w-full pl-10 pr-4 py-2 bg-white border border-stone-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-400 shadow-sm">
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">🔍</span>
                         </div>
-                        <button onclick="openCreatePanel()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-black text-xs uppercase flex items-center gap-2 shadow-md transition-all">
+                        <button id="openCreatePanelBtn" onclick="openCreatePanel()" class="hidden bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-black text-xs uppercase flex items-center gap-2 shadow-md transition-all">
                             <span class="sm:hidden text-base leading-none">+</span>
                             <span class="hidden sm:inline">+ Nuevo</span>
                         </button>
@@ -92,15 +101,7 @@
             <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
-                        <thead class="bg-stone-50 border-b border-stone-200 sticky top-0 z-10">
-                            <tr>
-                                <th class="px-4 py-3 w-10"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" class="w-4 h-4"></th>
-                                <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400">Apellidos y Nombres</th>
-                                <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400">Firma</th>
-                                <th class="hidden md:table-cell px-4 py-3 text-[10px] font-black uppercase text-stone-400">Cargo</th>
-                                <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400 text-right">Acciones</th>
-                            </tr>
-                        </thead>
+                        <thead id="masterTableHeader" class="bg-stone-50 border-b border-stone-200 sticky top-0 z-10"></thead>
                         <tbody id="masterTableBody" class="text-sm"></tbody>
                     </table>
                 </div>
@@ -316,6 +317,56 @@
         </div>
     </div>
 
+    <!-- MODAL DE AUTENTICACIÓN -->
+    <div id="authModal" class="fixed inset-0 bg-black/30 hidden z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xs flex flex-col">
+            <!-- Login form -->
+            <div id="authLoginForm">
+                <div class="px-6 pt-6 pb-4 border-b border-stone-100 flex items-start gap-3 bg-stone-50 rounded-t-2xl">
+                    <span class="text-xl mt-0.5">🔒</span>
+                    <div class="flex-grow">
+                        <h3 class="font-black text-stone-800 text-sm uppercase tracking-tight">Acceso de administrador</h3>
+                        <p class="text-[10px] text-stone-400 font-bold uppercase mt-0.5 tracking-widest">Solo lectura hasta iniciar sesión</p>
+                    </div>
+                    <button onclick="closeAuthModal()" class="text-xl text-stone-300 hover:text-stone-600 leading-none shrink-0">&times;</button>
+                </div>
+                <div class="px-6 py-5 space-y-3">
+                    <div>
+                        <label class="text-[10px] font-black text-stone-400 uppercase block mb-1 tracking-widest">Email</label>
+                        <input type="email" id="authEmail" placeholder="usuario@ejemplo.com"
+                            class="w-full p-2 bg-stone-50 border border-stone-200 rounded text-sm font-bold outline-none focus:ring-1 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-stone-400 uppercase block mb-1 tracking-widest">Contraseña</label>
+                        <input type="password" id="authPassword" placeholder="••••••••"
+                            class="w-full p-2 bg-stone-50 border border-stone-200 rounded text-sm font-bold outline-none focus:ring-1 focus:ring-blue-400"
+                            onkeydown="if(event.key==='Enter') doLogin()">
+                    </div>
+                    <p id="authError" class="text-[10px] text-red-500 font-bold hidden"></p>
+                </div>
+                <div class="px-6 pb-6 flex gap-2">
+                    <button onclick="doLogin()" class="flex-grow bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest transition-all">Ingresar</button>
+                    <button onclick="closeAuthModal()" class="px-4 bg-white border border-stone-200 text-stone-400 font-bold py-3 rounded-lg text-xs uppercase tracking-widest">Cancelar</button>
+                </div>
+            </div>
+            <!-- Logout confirmation -->
+            <div id="authLogoutForm" class="hidden">
+                <div class="px-6 pt-6 pb-4 border-b border-stone-100 flex items-start gap-3 bg-green-50 rounded-t-2xl">
+                    <span class="text-xl mt-0.5">✅</span>
+                    <div class="flex-grow">
+                        <h3 class="font-black text-stone-800 text-sm uppercase tracking-tight">Sesión activa</h3>
+                        <p id="authUserLabel" class="text-[10px] text-green-600 font-bold uppercase mt-0.5 tracking-widest"></p>
+                    </div>
+                    <button onclick="closeAuthModal()" class="text-xl text-stone-300 hover:text-stone-600 leading-none shrink-0">&times;</button>
+                </div>
+                <div class="px-6 py-6 flex gap-2">
+                    <button onclick="doLogout()" class="flex-grow bg-stone-800 hover:bg-stone-900 text-white font-black py-3 rounded-lg text-xs uppercase tracking-widest transition-all">Cerrar sesión</button>
+                    <button onclick="closeAuthModal()" class="px-4 bg-white border border-stone-200 text-stone-400 font-bold py-3 rounded-lg text-xs uppercase tracking-widest">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- TOAST DE NOTIFICACIÓN -->
     <div id="toast"></div>
 
@@ -329,7 +380,7 @@
     <!-- FIREBASE SDK & LÓGICA DE NEGOCIO -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithEmailAndPassword, signOut, onAuthStateChanged, browserLocalPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -383,11 +434,27 @@
         let activeEditId = null;
         let isFirmaDirty = false;
         let currentVersionDate = 'live'; // 'live' o una fecha 'DD/MM/YYYY'
+        let isAdmin = false; // estado de autenticación
 
         // ─── INICIALIZACIÓN ───────────────────────────────────────────
 
         async function init() {
             try {
+                await setPersistence(auth, browserLocalPersistence);
+
+                // Escuchar cambios de auth
+                onAuthStateChanged(auth, (user) => {
+                    if (user && !user.isAnonymous) {
+                        isAdmin = true;
+                        updateAuthUI(user.email);
+                    } else {
+                        isAdmin = false;
+                        updateAuthUI(null);
+                    }
+                    renderTable();
+                });
+
+                // Login anónimo para acceso de lectura a Firestore
                 await signInAnonymously(auth);
 
                 onSnapshot(collection(db, "autoridades"), (snapshot) => {
@@ -404,6 +471,79 @@
             } catch (error) {
                 console.error("Error de conexión:", error);
             }
+        }
+
+        // ─── AUTENTICACIÓN ────────────────────────────────────────────
+
+        function updateAuthUI(email) {
+            const icon = document.getElementById('authBtnIcon');
+            const label = document.getElementById('authBtnLabel');
+            const newBtn = document.getElementById('openCreatePanelBtn');
+            if (isAdmin) {
+                icon.textContent = '🔓';
+                label.textContent = 'Salir';
+                if (newBtn) newBtn.classList.remove('hidden');
+                document.body.classList.remove('readonly-mode');
+            } else {
+                icon.textContent = '🔒';
+                label.textContent = 'Administrar';
+                if (newBtn) newBtn.classList.add('hidden');
+                document.body.classList.add('readonly-mode');
+            }
+        }
+
+        window.openAuthModal = function() {
+            const loginForm = document.getElementById('authLoginForm');
+            const logoutForm = document.getElementById('authLogoutForm');
+            const err = document.getElementById('authError');
+            if (isAdmin) {
+                loginForm.classList.add('hidden');
+                logoutForm.classList.remove('hidden');
+                const user = auth.currentUser;
+                document.getElementById('authUserLabel').textContent = user?.email || '';
+            } else {
+                loginForm.classList.remove('hidden');
+                logoutForm.classList.add('hidden');
+                document.getElementById('authEmail').value = '';
+                document.getElementById('authPassword').value = '';
+                err.classList.add('hidden');
+            }
+            document.getElementById('authModal').classList.remove('hidden');
+            setTimeout(() => {
+                if (!isAdmin) document.getElementById('authEmail').focus();
+            }, 100);
+        }
+
+        window.closeAuthModal = function() {
+            document.getElementById('authModal').classList.add('hidden');
+        }
+
+        window.doLogin = async function() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+            const err = document.getElementById('authError');
+            err.classList.add('hidden');
+            if (!email || !password) {
+                err.textContent = 'Completá email y contraseña.';
+                err.classList.remove('hidden');
+                return;
+            }
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                closeAuthModal();
+                showToast('✓ Sesión iniciada');
+            } catch (e) {
+                err.textContent = 'Credenciales incorrectas. Intentá de nuevo.';
+                err.classList.remove('hidden');
+            }
+        }
+
+        window.doLogout = async function() {
+            await signOut(auth);
+            // Volver a login anónimo para mantener acceso de lectura
+            await signInAnonymously(auth);
+            closeAuthModal();
+            showToast('Sesión cerrada');
         }
 
         // ─── VERSIONES ────────────────────────────────────────────────
@@ -603,6 +743,7 @@
         }
 
         window.renderTable = function() {
+            const header = document.getElementById('masterTableHeader');
             const body = document.getElementById('masterTableBody');
             const search = (document.getElementById('masterSearch')?.value || "").toLowerCase();
             const hasSearch = search.length > 0;
@@ -624,17 +765,20 @@
 
             const activeRows = active.map(r => {
                 const isSelected = selectedOrder.includes(r.firebaseId);
+                const clickHandler = isAdmin ? `onclick="openEditPanel('${r.firebaseId}', event)"` : '';
+                const cursorClass = isAdmin ? 'cursor-pointer' : 'cursor-default';
+                const deleteBtn = isAdmin
+                    ? `<button onclick="deleteRecord('${r.firebaseId}')" class="text-stone-200 hover:text-red-500 transition-colors p-2">🗑️</button>`
+                    : '';
                 return `
-                    <tr class="row-${r.grupo} hover:bg-stone-50 cursor-pointer transition-all ${isSelected ? 'selected-row' : ''}" onclick="openEditPanel('${r.firebaseId}', event)">
+                    <tr class="row-${r.grupo} hover:bg-stone-50 transition-all ${cursorClass} ${isSelected ? 'selected-row' : ''}" ${clickHandler}>
                         <td class="px-4 py-3" onclick="event.stopPropagation()">
                             <input type="checkbox" class="w-4 h-4 rounded border-stone-300" ${isSelected ? 'checked' : ''} onchange="toggleSelect('${r.firebaseId}')">
                         </td>
                         <td class="px-4 py-3 font-bold text-stone-700">${getDisplayName(r)}</td>
                         <td class="px-4 py-3 italic font-serif text-blue-700 select-all">${r.firma}</td>
                         <td class="hidden md:table-cell px-4 py-3 text-stone-400 font-medium text-sm">${r.cargo}</td>
-                        <td class="px-4 py-3 text-right" onclick="event.stopPropagation()">
-                            <button onclick="deleteRecord('${r.firebaseId}')" class="text-stone-200 hover:text-red-500 transition-colors p-2">🗑️</button>
-                        </td>
+                        <td class="${isAdmin ? '' : 'hidden'} px-4 py-3 text-right" onclick="event.stopPropagation()">${deleteBtn}</td>
                     </tr>`;
             });
 
@@ -646,19 +790,33 @@
                         <td class="px-4 py-3 font-bold text-stone-500 line-through">${r.apellido}, ${r.nombres}</td>
                         <td class="px-4 py-3 italic font-serif text-stone-400">${r.firma}</td>
                         <td class="hidden md:table-cell px-4 py-3 text-stone-300 font-medium text-sm">${r.cargo}</td>
-                        <td class="px-4 py-3 text-right">
+                        <td class="${isAdmin ? '' : 'hidden'} px-4 py-3 text-right">
                             <span class="text-[9px] font-black text-stone-300 uppercase tracking-widest">Eliminado</span>
                         </td>
                     </tr>`);
 
             const separator = deleted.length > 0 ? `
-                    <tr><td colspan="4" class="px-4 py-2 bg-stone-50 border-y border-stone-100">
+                    <tr><td colspan="${isAdmin ? 5 : 4}" class="px-4 py-2 bg-stone-50 border-y border-stone-100">
                         <span class="text-[9px] font-black text-stone-300 uppercase tracking-widest">En papelera — clic para editar y reactivar</span>
                     </td></tr>` : '';
 
             const emptyRow = active.length === 0 && deleted.length === 0
-                ? '<tr><td colspan="4" class="p-10 text-center text-stone-300 italic">No hay registros</td></tr>'
+                ? '<tr><td colspan="${isAdmin ? 5 : 4}" class="p-10 text-center text-stone-300 italic">No hay registros</td></tr>'
                 : '';
+
+            header.innerHTML = `
+                    <tr>
+                        <th class="px-4 py-3 w-10">
+                        <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" class="w-4 h-4">
+                        </th>
+                        <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400">Apellidos y Nombres</th>
+                        <th class="px-4 py-3 text-[10px] font-black uppercase text-stone-400">Firma</th>
+                        <th class="hidden md:table-cell px-4 py-3 text-[10px] font-black uppercase text-stone-400">Cargo</th>
+                        <th class="${isAdmin ? '' : 'hidden'} px-4 py-3 text-[10px] font-black uppercase text-stone-400 text-right">
+                        Acciones
+                        </th>
+                    </tr>
+                    `;
 
             body.innerHTML = activeRows.join('') + separator + deletedRows.join('') + emptyRow;
 
@@ -669,6 +827,7 @@
         // ─── ACCIONES FIREBASE ────────────────────────────────────────
 
         window.triggerSaveRecord = async function() {
+            if (!isAdmin) return;
             const lastName  = document.getElementById('editLastName').value.trim();
             const firstName = document.getElementById('editFirstName').value.trim();
             const firma     = document.getElementById('editFirma').value.trim();
