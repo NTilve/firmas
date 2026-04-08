@@ -895,6 +895,25 @@
 
             document.getElementById('counterLabel').innerText =
                 `${active.length} Visibles | ${records.filter(x => x.active).length} Totales`;
+
+            updateSelectAllCheckbox(active);
+        }
+
+        function updateSelectAllCheckbox(visibleActive) {
+            const cb = document.getElementById('selectAll');
+            if (!cb) return;
+            const visibleIds = visibleActive.map(r => r.firebaseId);
+            const selectedVisible = visibleIds.filter(id => selectedOrder.includes(id));
+            if (selectedVisible.length === 0) {
+                cb.checked = false;
+                cb.indeterminate = false;
+            } else if (selectedVisible.length === visibleIds.length) {
+                cb.checked = true;
+                cb.indeterminate = false;
+            } else {
+                cb.checked = false;
+                cb.indeterminate = true;
+            }
         }
 
         // ─── ACCIONES FIREBASE ────────────────────────────────────────
